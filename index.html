@@ -20,6 +20,7 @@
       <nav class="main-nav" aria-label="Основная навигация">
         <button class="main-nav-button is-active" type="button" data-screen-target="home">Home</button>
         <button class="main-nav-button" type="button" data-screen-target="library">Library</button>
+        <button class="main-nav-button" type="button" data-screen-target="statistics">Statistics</button>
       </nav>
     </aside>
 
@@ -125,6 +126,29 @@
             </section>
           </section>
         </section>
+
+        <section class="screen" id="statisticsScreen" data-screen="statistics">
+          <section class="card stats-card">
+            <div class="stats-tabs" role="tablist" aria-label="Период статистики">
+              <button class="stats-tab is-active" id="statsWeekTab" type="button" data-stats-range="week">За неделю</button>
+              <button class="stats-tab" id="statsAllTimeTab" type="button" data-stats-range="all">За все время</button>
+            </div>
+
+            <section class="stats-section">
+              <div class="section-head">
+                <h3>Топ-10 треков</h3>
+              </div>
+              <div class="stats-list" id="statsTracksList" aria-live="polite"></div>
+            </section>
+
+            <section class="stats-section">
+              <div class="section-head">
+                <h3>Топ-10 исполнителей</h3>
+              </div>
+              <div class="stats-list" id="statsArtistsList" aria-live="polite"></div>
+            </section>
+          </section>
+        </section>
       </main>
     </div>
   </div>
@@ -214,6 +238,7 @@
   <nav class="mobile-nav" aria-label="Мобильная навигация">
     <button class="mobile-nav-button is-active" type="button" data-screen-target="home">Home</button>
     <button class="mobile-nav-button" type="button" data-screen-target="library">Library</button>
+    <button class="mobile-nav-button" type="button" data-screen-target="statistics">Statistics</button>
   </nav>
 
   <input id="audioInput" type="file" accept="audio/*" hidden>

@@ -1,14 +1,17 @@
 const TRACK_STORAGE_KEY = "soundkeeper-tracks-v1";
 const PLAYLIST_STORAGE_KEY = "soundkeeper-playlists-v1";
+const PLAY_HISTORY_STORAGE_KEY = "soundkeeper-play-history-v1";
 const DB_NAME = "soundkeeper-db";
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 const TRACK_STORE = "tracks";
 const PLAYLIST_STORE = "playlists";
+const PLAY_HISTORY_STORE = "play-history";
 const TELEGRAM_WEBAPP_SCRIPT_URL = "https://telegram.org/js/telegram-web-app.js?61";
 
 const state = {
   library: [],
   playlists: [],
+  playHistory: [],
   sessionAudio: new Map(),
   currentTrackId: null,
   pendingAttachTrackId: null,
@@ -16,6 +19,7 @@ const state = {
   selectedAudio: null,
   selectedCoverDataUrl: "",
   activeScreen: "home",
+  statsRange: "week",
   overlay: {
     open: false,
     type: "all",
@@ -49,13 +53,15 @@ async function init() {
 
 async function hydrateLibrary() {
   const storageApi = await ensureStorageReady();
-  const [tracks, playlists] = await Promise.all([
+  const [tracks, playlists, playHistory] = await Promise.all([
     storageApi.listTracks(),
     storageApi.listPlaylists(),
+    storageApi.listPlayHistory(),
   ]);
 
   state.library = tracks;
   state.playlists = playlists;
+  state.playHistory = playHistory;
   renderApp();
 }
 
@@ -107,6 +113,9 @@ function cacheRefs() {
   refs.playlistForm = document.getElementById("playlistForm");
   refs.openBulkAttachPicker = document.getElementById("openBulkAttachPicker");
   refs.bulkAttachStatus = document.getElementById("bulkAttachStatus");
+  refs.statsTracksList = document.getElementById("statsTracksList");
+  refs.statsArtistsList = document.getElementById("statsArtistsList");
+  refs.statsRangeButtons = Array.from(document.querySelectorAll("[data-stats-range]"));
   refs.titleInput = document.getElementById("titleInput");
   refs.artistInput = document.getElementById("artistInput");
   refs.albumInput = document.getElementById("albumInput");
@@ -239,6 +248,12 @@ function bindEvents() {
       return;
     }
 
+    const statsRangeButton = target.closest("[data-stats-range]");
+    if (statsRangeButton) {
+      setStatsRange(statsRangeButton.dataset.statsRange || "week");
+      return;
+    }
+
     const libraryOpenButton = target.closest("[data-library-open]");
     if (libraryOpenButton) {
       openCollectionSheet(
@@ -286,13 +301,18 @@ function bindEvents() {
 }
 
 function setActiveScreen(screen) {
-  state.activeScreen = screen === "library" ? "library" : "home";
+  state.activeScreen = ["home", "library", "statistics"].includes(screen) ? screen : "home";
   if (state.activeScreen !== "library") {
     closeTrackMenu();
     closeCollectionSheet();
   }
 
   renderApp();
+}
+
+function setStatsRange(range) {
+  state.statsRange = range === "all" ? "all" : "week";
+  renderStatistics();
 }
 
 function renderApp() {
@@ -303,6 +323,7 @@ function renderApp() {
   renderScreenTitle();
   renderDraft();
   renderLibraryHub();
+  renderStatistics();
   renderCollectionSheet();
   renderTrackMenu();
   renderMiniPlayer();
@@ -325,7 +346,12 @@ function renderScreens() {
 }
 
 function renderScreenTitle() {
-  refs.screenTitle.textContent = state.activeScreen === "library" ? "Library" : "Home";
+  const titles = {
+    home: "Home",
+    library: "Library",
+    statistics: "Statistics",
+  };
+  refs.screenTitle.textContent = titles[state.activeScreen] || "Home";
 }
 
 function renderDraft() {
@@ -354,6 +380,57 @@ function renderLibraryHub() {
   refs.playlistList.innerHTML = state.playlists.length
     ? state.playlists.map((playlist) => buildLibraryEntryMarkup(getPlaylistCardData(playlist), "playlist")).join("")
     : renderLibraryEmptyMarkup("Плейлистов пока нет");
+}
+
+function renderStatistics() {
+  for (const button of refs.statsRangeButtons) {
+    button.classList.toggle("is-active", button.dataset.statsRange === state.statsRange);
+  }
+
+  const topTracks = getTopTracksByRange(state.statsRange);
+  const topArtists = getTopArtistsByRange(state.statsRange);
+
+  refs.statsTracksList.innerHTML = topTracks.length
+    ? topTracks.map((item, index) => buildStatsTrackRowMarkup(item, index)).join("")
+    : renderLibraryEmptyMarkup("Прослушиваний пока нет");
+
+  refs.statsArtistsList.innerHTML = topArtists.length
+    ? topArtists.map((item, index) => buildStatsArtistRowMarkup(item, index)).join("")
+    : renderLibraryEmptyMarkup("Исполнителей пока нет");
+}
+
+function buildStatsTrackRowMarkup(item, index) {
+  const coverMarkup = item.coverDataUrl
+    ? `
+      <span class="stats-cover">
+        <img src="${item.coverDataUrl}" alt="Обложка ${escapeHtml(item.title)}">
+      </span>
+    `
+    : `<span class="stats-cover stats-cover-placeholder">♪</span>`;
+
+  return `
+    <article class="stats-row">
+      <span class="stats-rank">${index + 1}</span>
+      ${coverMarkup}
+      <span class="stats-copy">
+        <span class="stats-title">${escapeHtml(item.title)}</span>
+        <span class="stats-subtitle">${escapeHtml(item.artist)}</span>
+      </span>
+      <span class="stats-value">${item.playCount}</span>
+    </article>
+  `;
+}
+
+function buildStatsArtistRowMarkup(item, index) {
+  return `
+    <article class="stats-row">
+      <span class="stats-rank">${index + 1}</span>
+      <span class="stats-cover stats-cover-placeholder">${escapeHtml(getArtistInitials(item.artist))}</span>
+      <span class="stats-copy">
+        <span class="stats-title">${escapeHtml(item.artist)}</span>
+      </span>
+    </article>
+  `;
 }
 
 function renderCollectionSheet() {
@@ -904,7 +981,11 @@ async function playCurrentTrack() {
     refs.audioElement.dataset.trackId = track.id;
   }
 
-  await refs.audioElement.play().catch(() => undefined);
+  const playResult = await refs.audioElement.play().catch(() => undefined);
+  if (playResult !== undefined || !refs.audioElement.paused) {
+    await registerTrackPlay(track);
+  }
+
   renderCollectionSheet();
   renderMiniPlayer();
 }
@@ -1138,6 +1219,76 @@ function getTrackById(trackId) {
   return state.library.find((track) => track.id === trackId) || null;
 }
 
+async function registerTrackPlay(track) {
+  await ensureStorageReady();
+  const playEvent = {
+    id: createId(),
+    trackId: track.id,
+    playedAt: new Date().toISOString(),
+    artist: track.artist || "Не указан",
+  };
+
+  await state.storageApi.savePlayEvent(playEvent);
+  state.playHistory = await state.storageApi.listPlayHistory();
+  if (state.activeScreen === "statistics") {
+    renderStatistics();
+  }
+}
+
+function getTopTracksByRange(range) {
+  const history = getPlayHistoryByRange(range);
+  const counts = new Map();
+
+  for (const event of history) {
+    const track = getTrackById(event.trackId);
+    if (!track) {
+      continue;
+    }
+
+    const current = counts.get(track.id) || {
+      id: track.id,
+      title: track.title,
+      artist: track.artist || "Не указан",
+      coverDataUrl: track.coverDataUrl || "",
+      playCount: 0,
+    };
+
+    current.playCount += 1;
+    counts.set(track.id, current);
+  }
+
+  return Array.from(counts.values())
+    .sort((left, right) => right.playCount - left.playCount || left.title.localeCompare(right.title, "ru"))
+    .slice(0, 10);
+}
+
+function getTopArtistsByRange(range) {
+  const history = getPlayHistoryByRange(range);
+  const counts = new Map();
+
+  for (const event of history) {
+    const artist = event.artist || getTrackById(event.trackId)?.artist || "Не указан";
+    counts.set(artist, (counts.get(artist) || 0) + 1);
+  }
+
+  return Array.from(counts.entries())
+    .map(([artist, playCount]) => ({ artist, playCount }))
+    .sort((left, right) => right.playCount - left.playCount || left.artist.localeCompare(right.artist, "ru"))
+    .slice(0, 10);
+}
+
+function getPlayHistoryByRange(range) {
+  if (range === "all") {
+    return state.playHistory;
+  }
+
+  const since = Date.now() - 7 * 24 * 60 * 60 * 1000;
+  return state.playHistory.filter((event) => {
+    const playedAt = new Date(event.playedAt).getTime();
+    return Number.isFinite(playedAt) && playedAt >= since;
+  });
+}
+
 function buildBulkAttachPlan(files) {
   const unmatchedTracks = state.library.filter((track) => !state.sessionAudio.has(track.id));
   const plans = new Map();
@@ -1264,6 +1415,9 @@ function openIndexedDb() {
       if (!db.objectStoreNames.contains(PLAYLIST_STORE)) {
         db.createObjectStore(PLAYLIST_STORE, { keyPath: "id" });
       }
+      if (!db.objectStoreNames.contains(PLAY_HISTORY_STORE)) {
+        db.createObjectStore(PLAY_HISTORY_STORE, { keyPath: "id" });
+      }
     };
 
     request.onsuccess = () => resolve(request.result);
@@ -1292,6 +1446,13 @@ function createIndexedDbApi(db) {
     },
     removePlaylist(playlistId) {
       return runStoreRequest(db, PLAYLIST_STORE, "readwrite", (store) => store.delete(playlistId));
+    },
+    async listPlayHistory() {
+      const history = await runStoreRequest(db, PLAY_HISTORY_STORE, "readonly", (store) => store.getAll());
+      return history.sort((left, right) => String(right.playedAt || "").localeCompare(String(left.playedAt || "")));
+    },
+    savePlayEvent(event) {
+      return runStoreRequest(db, PLAY_HISTORY_STORE, "readwrite", (store) => store.put(event));
     },
   };
 }
@@ -1344,6 +1505,16 @@ function createLocalStorageApi() {
         PLAYLIST_STORAGE_KEY,
         JSON.stringify(playlists.filter((playlist) => playlist.id !== playlistId))
       );
+    },
+    async listPlayHistory() {
+      const payload = window.localStorage.getItem(PLAY_HISTORY_STORAGE_KEY);
+      const history = payload ? JSON.parse(payload) : [];
+      return history.sort((left, right) => String(right.playedAt || "").localeCompare(String(left.playedAt || "")));
+    },
+    async savePlayEvent(event) {
+      const history = await this.listPlayHistory();
+      history.push(event);
+      window.localStorage.setItem(PLAY_HISTORY_STORAGE_KEY, JSON.stringify(history));
     },
   };
 }
@@ -1398,6 +1569,15 @@ function loadImage(source) {
 
 function toFileLookupKey(fileName) {
   return normalizeText(stripExtension(fileName || ""));
+}
+
+function getArtistInitials(artist) {
+  const words = String(artist || "SK")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2);
+  return words.map((word) => word[0]?.toUpperCase() || "").join("") || "SK";
 }
 
 function stripExtension(fileName) {
