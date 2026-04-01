@@ -13,198 +13,162 @@
   <script src="app.js" defer></script>
 </head>
 <body>
-  <div class="app-frame">
-    <aside class="sidebar">
-      <div class="sidebar-brand">
-        <h1>Soundkeeper</h1>
-      </div>
+  <div class="app-shell">
+    <aside class="shell-nav">
+      <h1>Soundkeeper</h1>
 
-      <nav class="sidebar-nav" aria-label="Основная навигация">
-        <button class="nav-button is-active" type="button" data-screen-target="home">
-          <span class="nav-icon">01</span>
-          <span>Home</span>
-        </button>
-        <button class="nav-button" type="button" data-screen-target="library">
-          <span class="nav-icon">02</span>
-          <span>Library</span>
-        </button>
+      <nav class="main-nav" aria-label="Основная навигация">
+        <button class="main-nav-button is-active" type="button" data-screen-target="home">Home</button>
+        <button class="main-nav-button" type="button" data-screen-target="library">Library</button>
       </nav>
     </aside>
 
-    <div class="content-shell">
-      <header class="topbar">
-        <h2>Локальный аудиоплеер</h2>
-
-        <div class="topbar-actions">
-          <button class="ghost-button" id="openAudioPicker" type="button">Аудио</button>
-          <button class="ghost-button" id="openCoverPicker" type="button">Обложка</button>
-          <button class="primary-button" type="button" data-screen-target="home">Добавить</button>
-        </div>
+    <div class="app-main">
+      <header class="app-header">
+        <h2 id="screenTitle">Home</h2>
       </header>
-
-      <section class="card player-dock">
-        <div class="player-artwork">
-          <img id="heroCover" alt="Обложка текущего трека">
-          <div class="placeholder-art" id="heroPlaceholder" aria-hidden="true">
-            <span>SK</span>
-          </div>
-        </div>
-
-        <div class="player-main">
-          <div class="player-heading">
-            <h2 id="heroTitle">Добавьте первый трек</h2>
-            <p class="player-meta" id="heroArtist">Локальная библиотека</p>
-          </div>
-
-          <p class="player-status" id="heroStatus">Выберите аудио и сохраните карточку трека.</p>
-
-          <div class="player-controls">
-            <button class="primary-button" id="playPauseButton" type="button" disabled>Play</button>
-            <button class="ghost-button" id="focusImportButton" type="button" data-screen-target="home">Home</button>
-            <button class="ghost-button" id="focusLibraryButton" type="button" data-screen-target="library">Library</button>
-          </div>
-
-          <div class="timeline-block">
-            <input
-              id="progressInput"
-              type="range"
-              min="0"
-              max="100"
-              value="0"
-              step="0.1"
-              aria-label="Прогресс воспроизведения"
-            >
-            <div class="time-row">
-              <span id="currentTimeLabel">0:00</span>
-              <span id="durationLabel">0:00</span>
-            </div>
-          </div>
-        </div>
-      </section>
 
       <main class="screen-stack">
         <section class="screen is-active" id="homeScreen" data-screen="home">
-          <div class="screen-grid home-grid">
-            <section class="card screen-card import-card">
-              <div class="card-heading">
-                <h2>Добавить трек</h2>
+          <section class="card import-card">
+            <div class="card-heading">
+              <h2>Добавить трек</h2>
+            </div>
+
+            <form id="trackForm" class="track-form">
+              <div class="picker-row">
+                <button class="ghost-button" id="openAudioPicker" type="button">Выбрать аудио</button>
+                <button class="ghost-button" id="openCoverPicker" type="button">Выбрать обложку</button>
               </div>
 
-              <form id="trackForm" class="track-form">
-                <div class="file-summary">
-                  <div>
-                    <p id="selectedAudioLabel">Файл не выбран</p>
-                  </div>
-                  <div>
-                    <p id="selectedCoverLabel">Обложка не выбрана</p>
-                  </div>
+              <div class="file-summary">
+                <div>
+                  <span class="summary-label">Аудио</span>
+                  <p id="selectedAudioLabel">Файл не выбран</p>
                 </div>
-
-                <div class="form-grid">
-                  <label class="field">
-                    <span>Название</span>
-                    <input id="titleInput" name="title" maxlength="80" placeholder="Например, Night Drive">
-                  </label>
-
-                  <label class="field">
-                    <span>Исполнитель</span>
-                    <input id="artistInput" name="artist" maxlength="80" placeholder="Ваше имя или группа">
-                  </label>
-
-                  <label class="field">
-                    <span>Альбом</span>
-                    <input id="albumInput" name="album" maxlength="80" placeholder="Например, Midnight Tapes">
-                  </label>
-
-                  <label class="field">
-                    <span>Длительность</span>
-                    <input id="durationPreview" readonly value="Определится после выбора аудио">
-                  </label>
+                <div>
+                  <span class="summary-label">Обложка</span>
+                  <p id="selectedCoverLabel">Не выбрана</p>
                 </div>
-
-                <div class="import-actions">
-                  <button class="primary-button" id="saveTrackButton" type="submit" disabled>Сохранить</button>
-                  <button class="ghost-button" id="clearDraftButton" type="button">Очистить</button>
-                </div>
-              </form>
-            </section>
-
-            <section class="card recent-card">
-              <div class="card-heading">
-                <h2>Последние</h2>
-                <button class="ghost-button" type="button" data-screen-target="library">В Library</button>
               </div>
 
-              <div class="track-list compact-list" id="recentTrackList" aria-live="polite"></div>
-            </section>
-          </div>
+              <div class="form-grid">
+                <label class="field">
+                  <span>Название</span>
+                  <input id="titleInput" name="title" maxlength="80" placeholder="Например, Night Drive">
+                </label>
+
+                <label class="field">
+                  <span>Исполнитель</span>
+                  <input id="artistInput" name="artist" maxlength="80" placeholder="Ваше имя или группа">
+                </label>
+
+                <label class="field">
+                  <span>Альбом</span>
+                  <input id="albumInput" name="album" maxlength="80" placeholder="Например, Midnight Tapes">
+                </label>
+
+                <label class="field">
+                  <span>Длительность</span>
+                  <input id="durationPreview" readonly value="Определится после выбора аудио">
+                </label>
+              </div>
+
+              <div class="import-actions">
+                <button class="primary-button" id="saveTrackButton" type="submit" disabled>Сохранить</button>
+                <button class="ghost-button" id="clearDraftButton" type="button">Очистить</button>
+              </div>
+            </form>
+          </section>
         </section>
 
         <section class="screen" id="libraryScreen" data-screen="library">
-          <div class="screen-grid library-grid">
-            <section class="card screen-card">
-              <div class="card-heading">
-                <h2>Треки</h2>
-                <div class="search-wrap">
+          <div class="library-layout">
+            <aside class="library-sidebar card">
+              <button class="library-source is-active" type="button" data-library-target="all">Все треки</button>
+
+              <section class="library-group">
+                <h3>Альбомы</h3>
+                <div class="library-source-list" id="albumList" aria-live="polite"></div>
+              </section>
+
+              <section class="library-group">
+                <div class="group-heading">
+                  <h3>Плейлисты</h3>
+                </div>
+
+                <form class="playlist-form playlist-form-compact" id="playlistForm">
+                  <input id="playlistNameInput" maxlength="60" placeholder="Новый плейлист" aria-label="Название плейлиста">
+                  <button class="primary-button icon-button" id="createPlaylistButton" type="submit">+</button>
+                </form>
+
+                <div class="library-source-list" id="playlistList" aria-live="polite"></div>
+              </section>
+            </aside>
+
+            <section class="library-content card">
+              <div class="card-heading library-heading">
+                <div class="library-heading-copy">
+                  <p id="libraryViewType">Медиатека</p>
+                  <h2 id="libraryViewTitle">Все треки</h2>
+                  <p id="libraryViewMeta"></p>
+                </div>
+
+                <div class="library-tools">
                   <input id="librarySearch" type="search" placeholder="Поиск">
+                  <button class="ghost-button" id="playCollectionButton" type="button">По порядку</button>
+                  <button class="ghost-button" id="shuffleCollectionButton" type="button">Перемешать</button>
                 </div>
               </div>
 
               <div class="track-list" id="libraryTrackList" aria-live="polite"></div>
             </section>
-
-            <section class="card collection-rail">
-              <div class="card-heading">
-                <h2>Коллекция</h2>
-              </div>
-
-              <div class="chip-row">
-                <button class="chip-button is-active" type="button" data-collections-tab="albums">Albums</button>
-                <button class="chip-button" type="button" data-collections-tab="playlists">Playlists</button>
-              </div>
-
-              <form class="playlist-form" id="playlistForm">
-                <div class="playlist-form-grid">
-                  <label class="field">
-                    <span>Плейлист</span>
-                    <input id="playlistNameInput" maxlength="60" placeholder="Например, Evening Drive">
-                  </label>
-                  <label class="field">
-                    <span>Описание</span>
-                    <input id="playlistDescriptionInput" maxlength="100" placeholder="Необязательно">
-                  </label>
-                </div>
-
-                <button class="primary-button" id="createPlaylistButton" type="submit">Создать</button>
-              </form>
-
-              <div class="collection-grid" id="collectionGrid" aria-live="polite"></div>
-            </section>
-
-            <section class="card collection-detail">
-              <div class="detail-header">
-                <div class="detail-art" id="collectionDetailArt">
-                  <span>SK</span>
-                </div>
-                <div class="detail-copy">
-                  <p id="collectionDetailType">Select</p>
-                  <h2 id="collectionDetailTitle">Выберите альбом или плейлист</h2>
-                  <p id="collectionDetailDescription">Здесь появятся треки выбранной коллекции.</p>
-                </div>
-              </div>
-
-              <div class="track-list" id="collectionTrackList" aria-live="polite"></div>
-            </section>
           </div>
         </section>
       </main>
-
-      <nav class="mobile-nav" aria-label="Мобильная навигация">
-        <button class="mobile-nav-button is-active" type="button" data-screen-target="home">Home</button>
-        <button class="mobile-nav-button" type="button" data-screen-target="library">Library</button>
-      </nav>
     </div>
   </div>
+
+  <div class="mini-player is-hidden" id="miniPlayer">
+    <div class="mini-player-cover">
+      <img id="heroCover" alt="Обложка текущего трека">
+      <div class="placeholder-art" id="heroPlaceholder" aria-hidden="true">
+        <span>SK</span>
+      </div>
+    </div>
+
+    <div class="mini-player-copy">
+      <h3 id="heroTitle">Ничего не играет</h3>
+      <p id="heroArtist"></p>
+    </div>
+
+    <div class="mini-player-controls">
+      <button class="ghost-button icon-button" id="prevTrackButton" type="button" aria-label="Предыдущий трек">&#9664;</button>
+      <button class="primary-button icon-button" id="playPauseButton" type="button" disabled>Слушать</button>
+      <button class="ghost-button icon-button" id="nextTrackButton" type="button" aria-label="Следующий трек">&#9654;</button>
+    </div>
+
+    <div class="mini-player-progress">
+      <input
+        id="progressInput"
+        type="range"
+        min="0"
+        max="100"
+        value="0"
+        step="0.1"
+        aria-label="Прогресс воспроизведения"
+      >
+      <div class="time-row">
+        <span id="currentTimeLabel">0:00</span>
+        <span id="durationLabel">0:00</span>
+      </div>
+    </div>
+  </div>
+
+  <nav class="mobile-nav" aria-label="Мобильная навигация">
+    <button class="mobile-nav-button is-active" type="button" data-screen-target="home">Home</button>
+    <button class="mobile-nav-button" type="button" data-screen-target="library">Library</button>
+  </nav>
 
   <input id="audioInput" type="file" accept="audio/*" hidden>
   <input id="coverInput" type="file" accept="image/*" hidden>
