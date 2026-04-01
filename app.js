@@ -79,9 +79,6 @@ function cacheRefs() {
   refs.collectionDetailType = document.getElementById("collectionDetailType");
   refs.collectionDetailTitle = document.getElementById("collectionDetailTitle");
   refs.collectionDetailDescription = document.getElementById("collectionDetailDescription");
-  refs.trackCountValue = document.getElementById("trackCountValue");
-  refs.albumCountValue = document.getElementById("albumCountValue");
-  refs.playlistCountValue = document.getElementById("playlistCountValue");
   refs.screenNodes = Array.from(document.querySelectorAll(".screen"));
   refs.navButtons = Array.from(document.querySelectorAll(".nav-button"));
   refs.mobileNavButtons = Array.from(document.querySelectorAll(".mobile-nav-button"));
@@ -90,11 +87,11 @@ function cacheRefs() {
 
 function bindEvents() {
   document.getElementById("openAudioPicker").addEventListener("click", () => {
-    setActiveScreen("add");
+    setActiveScreen("home");
     refs.audioInput.click();
   });
   document.getElementById("openCoverPicker").addEventListener("click", () => {
-    setActiveScreen("add");
+    setActiveScreen("home");
     refs.coverInput.click();
   });
 
@@ -165,7 +162,7 @@ function bindEvents() {
 }
 
 function setActiveScreen(screen) {
-  state.activeScreen = screen;
+  state.activeScreen = screen === "library" ? "library" : "home";
   renderNavigation();
   renderScreens();
 }
@@ -207,15 +204,10 @@ function renderScreens() {
 }
 
 function renderHome() {
-  const albums = getAlbums();
-  refs.trackCountValue.textContent = String(state.library.length);
-  refs.albumCountValue.textContent = String(albums.length);
-  refs.playlistCountValue.textContent = String(state.playlists.length);
-
   const recentTracks = state.library.slice(0, 4);
   refs.recentTrackList.innerHTML = buildTrackListMarkup(recentTracks, {
-    emptyTitle: "Пока нет последних треков",
-    emptyCopy: "Добавьте первый трек во вкладке Add, и здесь появится локальная история.",
+    emptyTitle: "Пока пусто",
+    emptyCopy: "Добавьте первый трек.",
     showDelete: false,
     showPlaylistChooser: false,
   });
@@ -230,8 +222,8 @@ function renderLibrary() {
   refs.libraryTrackList.innerHTML = buildTrackListMarkup(filteredTracks, {
     emptyTitle: state.library.length ? "Ничего не найдено" : "Библиотека пока пустая",
     emptyCopy: state.library.length
-      ? "Попробуйте другой запрос или откройте Collections, чтобы перейти по альбому."
-      : "Перейдите во вкладку Add, выберите аудио и сохраните первый трек.",
+      ? "Попробуйте другой запрос."
+      : "Добавьте первый трек на Home.",
     showDelete: true,
     showPlaylistChooser: true,
   });
@@ -250,11 +242,11 @@ function renderCollections() {
     const albums = getAlbums();
     refs.collectionGrid.innerHTML = albums.length
       ? albums.map(buildAlbumCardMarkup).join("")
-      : renderEmptyStateMarkup("Альбомов пока нет", "Заполните поле Album во вкладке Add, чтобы собирать альбомные карточки.");
+      : renderEmptyStateMarkup("Альбомов пока нет", "Добавьте трек с названием альбома.");
   } else {
     refs.collectionGrid.innerHTML = state.playlists.length
       ? state.playlists.map(buildPlaylistCardMarkup).join("")
-      : renderEmptyStateMarkup("Плейлистов пока нет", "Создайте первый плейлист и начните раскладывать по нему треки из библиотеки.");
+      : renderEmptyStateMarkup("Плейлистов пока нет", "Создайте первый плейлист.");
   }
 
   renderCollectionDetail();
@@ -325,9 +317,9 @@ function renderPlayerDock() {
   const isPlaying = track && refs.audioElement.dataset.trackId === track.id && !refs.audioElement.paused;
 
   if (!track) {
-    refs.heroTitle.textContent = "Загрузите первый трек";
-    refs.heroArtist.textContent = "Локальная библиотека, альбомы и плейлисты живут только на устройстве";
-    refs.heroStatus.textContent = "Откройте вкладку Add, выберите аудиофайл и сохраните карточку. После этого трек появится в Home, Library и Collections.";
+    refs.heroTitle.textContent = "Добавьте первый трек";
+    refs.heroArtist.textContent = "Локальная библиотека";
+    refs.heroStatus.textContent = "Выберите аудио и сохраните карточку трека.";
     refs.playPauseButton.disabled = true;
     refs.playPauseButton.textContent = "Play";
     refs.heroCover.style.display = "none";
@@ -345,10 +337,10 @@ function renderPlayerDock() {
 
   if (session) {
     refs.heroStatus.textContent = isPlaying
-      ? "Трек воспроизводится из локального файла, подключенного в этой сессии."
-      : "Карточка активна. Можно слушать трек, пока Mini App открыт и файл прикреплен.";
+      ? "Трек воспроизводится."
+      : "Файл подключен.";
   } else {
-    refs.heroStatus.textContent = "Карточка сохранена, но сам файл не прикреплен к этой сессии. Нажмите Play или Attach.";
+    refs.heroStatus.textContent = "Нужно снова прикрепить файл.";
   }
 
   if (track.coverDataUrl) {
@@ -647,7 +639,7 @@ async function removeTrack(trackId) {
 async function togglePlayPause() {
   const track = getCurrentTrack();
   if (!track) {
-    setActiveScreen("add");
+    setActiveScreen("home");
     return;
   }
 
@@ -868,11 +860,7 @@ function buildTrackCardMarkup(track, options = {}) {
     <article class="track-card ${isActive ? "is-active" : ""}">
       ${coverMarkup}
       <div class="track-meta">
-        <div class="track-title-row">
-          <h3 class="track-title">${escapeHtml(track.title)}</h3>
-          <span class="track-badge stored">Saved</span>
-          <span class="track-badge ${session ? "ready" : ""}">${session ? "Ready" : "Metadata only"}</span>
-        </div>
+        <h3 class="track-title">${escapeHtml(track.title)}</h3>
         <p class="track-subtitle">${escapeHtml(track.artist)}${track.album ? ` · ${escapeHtml(track.album)}` : ""}</p>
         <p class="track-caption">${formatDuration(track.durationSeconds || 0)} · ${escapeHtml(track.fileName || "Локальный файл")}</p>
         <div class="track-badge-row">
@@ -898,9 +886,9 @@ function renderEmptyStateMarkup(title, copy) {
 }
 
 function setCollectionDetailPlaceholder() {
-  refs.collectionDetailType.textContent = "Select";
+  refs.collectionDetailType.textContent = "";
   refs.collectionDetailTitle.textContent = "Выберите альбом или плейлист";
-  refs.collectionDetailDescription.textContent = "Здесь появится список треков выбранной коллекции.";
+  refs.collectionDetailDescription.textContent = "Здесь появятся треки.";
   setCollectionDetailArt("");
   refs.collectionTrackList.innerHTML = renderEmptyStateMarkup(
     "Коллекция не выбрана",
