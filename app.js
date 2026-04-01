@@ -1,21 +1,24 @@
 const TRACK_STORAGE_KEY = "soundkeeper-tracks-v1";
 const PLAYLIST_STORAGE_KEY = "soundkeeper-playlists-v1";
+const ARTIST_PROFILE_STORAGE_KEY = "soundkeeper-artists-v1";
 const PLAY_HISTORY_STORAGE_KEY = "soundkeeper-play-history-v1";
 const DB_NAME = "soundkeeper-db";
-const DB_VERSION = 3;
+const DB_VERSION = 4;
 const TRACK_STORE = "tracks";
 const PLAYLIST_STORE = "playlists";
+const ARTIST_PROFILE_STORE = "artist-profiles";
 const PLAY_HISTORY_STORE = "play-history";
 const TELEGRAM_WEBAPP_SCRIPT_URL = "https://telegram.org/js/telegram-web-app.js?61";
 
 const state = {
   library: [],
   playlists: [],
+  artistProfiles: [],
   playHistory: [],
   sessionAudio: new Map(),
   currentTrackId: null,
   pendingAttachTrackId: null,
-  pendingPlaylistCoverId: null,
+  pendingCollectionCover: null,
   selectedAudio: null,
   selectedCoverDataUrl: "",
   activeScreen: "home",
@@ -65,14 +68,16 @@ async function init() {
 
 async function hydrateLibrary() {
   const storageApi = await ensureStorageReady();
-  const [tracks, playlists, playHistory] = await Promise.all([
+  const [tracks, playlists, artistProfiles, playHistory] = await Promise.all([
     storageApi.listTracks(),
     storageApi.listPlaylists(),
+    storageApi.listArtistProfiles(),
     storageApi.listPlayHistory(),
   ]);
 
   state.library = tracks;
   state.playlists = playlists;
+  state.artistProfiles = artistProfiles;
   state.playHistory = playHistory;
   renderApp();
 }
@@ -143,8 +148,10 @@ function cacheRefs() {
   refs.allTracksCount = document.getElementById("allTracksCount");
   refs.albumCountLabel = document.getElementById("albumCountLabel");
   refs.playlistCountLabel = document.getElementById("playlistCountLabel");
+  refs.artistCountLabel = document.getElementById("artistCountLabel");
   refs.albumList = document.getElementById("albumList");
   refs.playlistList = document.getElementById("playlistList");
+  refs.artistList = document.getElementById("artistList");
   refs.collectionSheet = document.getElementById("collectionSheet");
   refs.closeCollectionSheet = document.getElementById("closeCollectionSheet");
   refs.sheetBackButton = document.getElementById("sheetBackButton");
@@ -220,11 +227,14 @@ function bindEvents() {
   });
   refs.sheetPlaylistCoverButton.addEventListener("click", () => {
     const view = getOverlayViewData();
-    if (!view?.playlistId) {
+    if (!view || !view.coverEditableType || !view.coverEditableId) {
       return;
     }
 
-    state.pendingPlaylistCoverId = view.playlistId;
+    state.pendingCollectionCover = {
+      type: view.coverEditableType,
+      id: view.coverEditableId,
+    };
     refs.playlistCoverInput.click();
   });
 
@@ -388,10 +398,12 @@ function renderDraft() {
 
 function renderLibraryHub() {
   const albums = getAlbums();
+  const artists = getArtists();
   const connectedTrackCount = state.library.filter((track) => state.sessionAudio.has(track.id)).length;
   refs.allTracksCount.textContent = formatTrackCount(state.library.length);
   refs.albumCountLabel.textContent = String(albums.length);
   refs.playlistCountLabel.textContent = String(state.playlists.length);
+  refs.artistCountLabel.textContent = String(artists.length);
   refs.openBulkAttachPicker.disabled = state.library.length === 0;
   refs.bulkAttachStatus.textContent = state.library.length
     ? `${connectedTrackCount} из ${state.library.length} подключено`
@@ -404,6 +416,10 @@ function renderLibraryHub() {
   refs.playlistList.innerHTML = state.playlists.length
     ? state.playlists.map((playlist) => buildLibraryEntryMarkup(getPlaylistCardData(playlist), "playlist")).join("")
     : renderLibraryEmptyMarkup("Плейлистов пока нет");
+
+  refs.artistList.innerHTML = artists.length
+    ? artists.map((artist) => buildLibraryEntryMarkup(artist, "artist")).join("")
+    : renderLibraryEmptyMarkup("Исполнителей пока нет");
 }
 
 function renderStatistics() {
@@ -412,7 +428,7 @@ function renderStatistics() {
   }
 
   const topTracks = getTopTracksByRange(state.statsRange);
-  const topArtists = getTopArtistsByRange(state.statsRange);
+  const topArtists = getTopArtistsStatsByRange(state.statsRange);
 
   refs.statsTracksList.innerHTML = topTracks.length
     ? topTracks.map((item, index) => buildStatsTrackRowMarkup(item, index)).join("")
@@ -446,10 +462,18 @@ function buildStatsTrackRowMarkup(item, index) {
 }
 
 function buildStatsArtistRowMarkup(item, index) {
+  const coverMarkup = item.coverDataUrl
+    ? `
+      <span class="stats-cover">
+        <img src="${item.coverDataUrl}" alt="Обложка ${escapeHtml(item.artist)}">
+      </span>
+    `
+    : `<span class="stats-cover stats-cover-placeholder">${escapeHtml(getArtistInitials(item.artist))}</span>`;
+
   return `
     <article class="stats-row">
       <span class="stats-rank">${index + 1}</span>
-      <span class="stats-cover stats-cover-placeholder">${escapeHtml(getArtistInitials(item.artist))}</span>
+      ${coverMarkup}
       <span class="stats-copy">
         <span class="stats-title">${escapeHtml(item.artist)}</span>
       </span>
@@ -474,7 +498,7 @@ function renderCollectionSheet() {
   refs.sheetPlayButton.disabled = tracks.length === 0;
   refs.sheetShuffleButton.disabled = tracks.length === 0;
   refs.sheetCoverWrap.classList.toggle("is-hidden", !view.showCover);
-  refs.sheetPlaylistCoverButton.classList.toggle("is-hidden", !view.playlistId);
+  refs.sheetPlaylistCoverButton.classList.toggle("is-hidden", !view.coverEditableId);
 
   if (view.showCover && view.coverDataUrl) {
     refs.sheetCover.src = view.coverDataUrl;
@@ -577,6 +601,7 @@ function renderMiniPlayer() {
 }
 
 function buildLibraryEntryMarkup(item, type) {
+  const placeholderLabel = type === "album" ? "AL" : type === "artist" ? "AR" : "PL";
   const artMarkup = item.coverDataUrl
     ? `
       <span class="library-entry-art">
@@ -584,7 +609,7 @@ function buildLibraryEntryMarkup(item, type) {
       </span>
     `
     : `
-      <span class="library-entry-art library-entry-placeholder">${type === "album" ? "AL" : "PL"}</span>
+      <span class="library-entry-art library-entry-placeholder">${placeholderLabel}</span>
     `;
 
   return `
@@ -803,25 +828,39 @@ async function handleCoverPicked() {
 
 async function handlePlaylistCoverPicked() {
   const file = refs.playlistCoverInput.files?.[0];
-  const playlistId = state.pendingPlaylistCoverId;
+  const pendingCover = state.pendingCollectionCover;
   refs.playlistCoverInput.value = "";
-  state.pendingPlaylistCoverId = null;
+  state.pendingCollectionCover = null;
 
-  if (!file || !playlistId) {
+  if (!file || !pendingCover?.id || !pendingCover.type) {
     return;
   }
 
   await ensureStorageReady();
-  const playlist = state.playlists.find((item) => item.id === playlistId);
-  if (!playlist) {
+  const coverDataUrl = await compressImageToDataUrl(file, 640);
+
+  if (pendingCover.type === "playlist") {
+    const playlist = state.playlists.find((item) => item.id === pendingCover.id);
+    if (!playlist) {
+      return;
+    }
+
+    playlist.coverDataUrl = coverDataUrl;
+    playlist.updatedAt = new Date().toISOString();
+    await state.storageApi.savePlaylist(playlist);
+    state.playlists = await state.storageApi.listPlaylists();
+    renderApp();
     return;
   }
 
-  playlist.coverDataUrl = await compressImageToDataUrl(file, 640);
-  playlist.updatedAt = new Date().toISOString();
-  await state.storageApi.savePlaylist(playlist);
-  state.playlists = await state.storageApi.listPlaylists();
-  renderApp();
+  if (pendingCover.type === "artist") {
+    const profile = getOrCreateArtistProfile(pendingCover.id);
+    profile.coverDataUrl = coverDataUrl;
+    profile.updatedAt = new Date().toISOString();
+    await state.storageApi.saveArtistProfile(profile);
+    state.artistProfiles = await state.storageApi.listArtistProfiles();
+    renderApp();
+  }
 }
 
 async function handleAttachPicked() {
@@ -1153,6 +1192,11 @@ function ensureValidOverlay() {
 
   if (state.overlay.type === "playlist" && !state.playlists.some((playlist) => playlist.id === state.overlay.id)) {
     state.overlay.open = false;
+    return;
+  }
+
+  if (state.overlay.type === "artist" && !getArtists().some((artist) => artist.id === state.overlay.id)) {
+    state.overlay.open = false;
   }
 }
 
@@ -1177,6 +1221,12 @@ function ensureValidTrackMenu() {
     && !getAlbums().some((album) => album.id === state.trackMenu.collectionId)) {
     state.trackMenu.collectionId = null;
   }
+
+  if (state.trackMenu.collectionType === "artist"
+    && state.trackMenu.collectionId
+    && !getArtists().some((artist) => artist.id === state.trackMenu.collectionId)) {
+    state.trackMenu.collectionId = null;
+  }
 }
 
 function getOverlayViewData() {
@@ -1199,6 +1249,8 @@ function getOverlayViewData() {
       trackIds: album.trackIds,
       coverDataUrl: album.coverDataUrl,
       showCover: true,
+      coverEditableType: null,
+      coverEditableId: null,
       playlistId: null,
     };
   }
@@ -1219,7 +1271,30 @@ function getOverlayViewData() {
       trackIds: playlist.trackIds,
       coverDataUrl: playlist.coverDataUrl || getCollectionCoverDataUrl(tracks),
       showCover: true,
+      coverEditableType: "playlist",
+      coverEditableId: playlist.id,
       playlistId: playlist.id,
+    };
+  }
+
+  if (state.overlay.type === "artist") {
+    const artist = getArtists().find((item) => item.id === state.overlay.id);
+    if (!artist) {
+      return null;
+    }
+
+    return {
+      type: "artist",
+      typeLabel: "Исполнитель",
+      title: artist.title,
+      meta: formatTrackCount(artist.trackIds.length),
+      albumId: null,
+      trackIds: artist.trackIds,
+      coverDataUrl: artist.coverDataUrl,
+      showCover: true,
+      coverEditableType: "artist",
+      coverEditableId: artist.id,
+      playlistId: null,
     };
   }
 
@@ -1233,6 +1308,8 @@ function getOverlayViewData() {
     trackIds: allTracks.map((track) => track.id),
     coverDataUrl: "",
     showCover: false,
+    coverEditableType: null,
+    coverEditableId: null,
     playlistId: null,
   };
 }
@@ -1249,6 +1326,71 @@ function getPlaylistCardData(playlist) {
     meta: formatTrackCount(tracks.length),
     coverDataUrl: playlist.coverDataUrl || getCollectionCoverDataUrl(tracks),
   };
+}
+
+function getArtists() {
+  const groups = new Map();
+
+  for (const track of state.library) {
+    const artistName = String(track.artist || "").trim();
+    if (!artistName) {
+      continue;
+    }
+
+    const artistId = `artist:${normalizeText(artistName)}`;
+    if (!groups.has(artistId)) {
+      groups.set(artistId, {
+        id: artistId,
+        title: artistName,
+        tracks: [],
+      });
+    }
+
+    groups.get(artistId).tracks.push(track);
+  }
+
+  return Array.from(groups.values())
+    .map((artist) => getArtistCardData(artist))
+    .sort((left, right) => left.title.localeCompare(right.title, "ru"));
+}
+
+function getArtistCardData(artist) {
+  const profile = getArtistProfile(artist.id);
+  const orderedTrackIds = orderTrackIdsByProfile(
+    artist.tracks.map((track) => track.id),
+    profile?.trackIds || []
+  );
+  const orderedTracks = orderedTrackIds.map(getTrackById).filter(Boolean);
+
+  return {
+    id: artist.id,
+    title: artist.title,
+    meta: formatTrackCount(orderedTracks.length),
+    trackIds: orderedTrackIds,
+    coverDataUrl: profile?.coverDataUrl || getCollectionCoverDataUrl(orderedTracks),
+  };
+}
+
+function getArtistProfile(artistId) {
+  return state.artistProfiles.find((profile) => profile.id === artistId) || null;
+}
+
+function getOrCreateArtistProfile(artistId) {
+  return getArtistProfile(artistId) || {
+    id: artistId,
+    coverDataUrl: "",
+    trackIds: [],
+    updatedAt: new Date().toISOString(),
+  };
+}
+
+function orderTrackIdsByProfile(trackIds, preferredOrderIds) {
+  const availableIds = trackIds.filter(Boolean);
+  const availableSet = new Set(availableIds);
+  const ordered = preferredOrderIds.filter((trackId) => availableSet.has(trackId));
+  const used = new Set(ordered);
+  const rest = availableIds.filter((trackId) => !used.has(trackId));
+  return [...ordered, ...rest];
 }
 
 function getAlbums() {
@@ -1382,11 +1524,22 @@ async function deleteTrackFromLibrary(trackId) {
     await state.storageApi.savePlaylist(playlist);
   }
 
+  for (const profile of state.artistProfiles) {
+    if (!profile.trackIds?.includes(trackId)) {
+      continue;
+    }
+
+    profile.trackIds = profile.trackIds.filter((id) => id !== trackId);
+    profile.updatedAt = new Date().toISOString();
+    await state.storageApi.saveArtistProfile(profile);
+  }
+
   await state.storageApi.removeTrack(trackId);
   await state.storageApi.removePlayEventsByTrackId(trackId);
 
   state.library = await state.storageApi.listTracks();
   state.playlists = await state.storageApi.listPlaylists();
+  state.artistProfiles = await state.storageApi.listArtistProfiles();
   state.playHistory = await state.storageApi.listPlayHistory();
   syncPlaybackAfterTrackRemoval(trackId);
   renderApp();
@@ -1454,6 +1607,11 @@ async function persistTrackOrderFromDom() {
     return;
   }
 
+  if (view.type === "artist" && view.coverEditableId) {
+    await reorderArtistTracks(view.coverEditableId, orderedIds);
+    return;
+  }
+
   await reorderLibraryTracks(orderedIds);
 }
 
@@ -1492,6 +1650,21 @@ async function reorderAlbumTracks(albumId, orderedIds) {
 
   await Promise.all(updates);
   state.library = await state.storageApi.listTracks();
+  renderApp();
+}
+
+async function reorderArtistTracks(artistId, orderedIds) {
+  await ensureStorageReady();
+  const artist = getArtists().find((item) => item.id === artistId);
+  if (!artist) {
+    return;
+  }
+
+  const profile = getOrCreateArtistProfile(artistId);
+  profile.trackIds = orderedIds.filter((trackId) => artist.trackIds.includes(trackId));
+  profile.updatedAt = new Date().toISOString();
+  await state.storageApi.saveArtistProfile(profile);
+  state.artistProfiles = await state.storageApi.listArtistProfiles();
   renderApp();
 }
 
@@ -1735,6 +1908,30 @@ function getTopArtistsByRange(range) {
     .slice(0, 10);
 }
 
+function getTopArtistsStatsByRange(range) {
+  const history = getPlayHistoryByRange(range);
+  const counts = new Map();
+  const artists = getArtists();
+
+  for (const event of history) {
+    const artist = event.artist || getTrackById(event.trackId)?.artist || "Не указан";
+    const artistId = `artist:${normalizeText(artist)}`;
+    const artistCard = artists.find((item) => item.id === artistId);
+    const current = counts.get(artistId) || {
+      artist,
+      playCount: 0,
+      coverDataUrl: artistCard?.coverDataUrl || "",
+    };
+
+    current.playCount += 1;
+    counts.set(artistId, current);
+  }
+
+  return Array.from(counts.values())
+    .sort((left, right) => right.playCount - left.playCount || left.artist.localeCompare(right.artist, "ru"))
+    .slice(0, 10);
+}
+
 function getPlayHistoryByRange(range) {
   if (range === "all") {
     return state.playHistory;
@@ -1873,6 +2070,9 @@ function openIndexedDb() {
       if (!db.objectStoreNames.contains(PLAYLIST_STORE)) {
         db.createObjectStore(PLAYLIST_STORE, { keyPath: "id" });
       }
+      if (!db.objectStoreNames.contains(ARTIST_PROFILE_STORE)) {
+        db.createObjectStore(ARTIST_PROFILE_STORE, { keyPath: "id" });
+      }
       if (!db.objectStoreNames.contains(PLAY_HISTORY_STORE)) {
         db.createObjectStore(PLAY_HISTORY_STORE, { keyPath: "id" });
       }
@@ -1904,6 +2104,13 @@ function createIndexedDbApi(db) {
     },
     removePlaylist(playlistId) {
       return runStoreRequest(db, PLAYLIST_STORE, "readwrite", (store) => store.delete(playlistId));
+    },
+    async listArtistProfiles() {
+      const profiles = await runStoreRequest(db, ARTIST_PROFILE_STORE, "readonly", (store) => store.getAll());
+      return profiles.sort((left, right) => String(right.updatedAt || "").localeCompare(String(left.updatedAt || "")));
+    },
+    saveArtistProfile(profile) {
+      return runStoreRequest(db, ARTIST_PROFILE_STORE, "readwrite", (store) => store.put(profile));
     },
     async listPlayHistory() {
       const history = await runStoreRequest(db, PLAY_HISTORY_STORE, "readonly", (store) => store.getAll());
@@ -1970,6 +2177,17 @@ function createLocalStorageApi() {
         PLAYLIST_STORAGE_KEY,
         JSON.stringify(playlists.filter((playlist) => playlist.id !== playlistId))
       );
+    },
+    async listArtistProfiles() {
+      const payload = window.localStorage.getItem(ARTIST_PROFILE_STORAGE_KEY);
+      const profiles = payload ? JSON.parse(payload) : [];
+      return profiles.sort((left, right) => String(right.updatedAt || "").localeCompare(String(left.updatedAt || "")));
+    },
+    async saveArtistProfile(profile) {
+      const profiles = await this.listArtistProfiles();
+      const nextProfiles = profiles.filter((item) => item.id !== profile.id);
+      nextProfiles.push(profile);
+      window.localStorage.setItem(ARTIST_PROFILE_STORAGE_KEY, JSON.stringify(nextProfiles));
     },
     async listPlayHistory() {
       const payload = window.localStorage.getItem(PLAY_HISTORY_STORAGE_KEY);
