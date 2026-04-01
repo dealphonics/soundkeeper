@@ -37,6 +37,7 @@ const state = {
     active: false,
     pointerId: null,
     rowEl: null,
+    ghostEl: null,
     timerId: null,
     startX: 0,
     startY: 0,
@@ -677,6 +678,8 @@ function closeCollectionSheet() {
   if (state.drag.active && state.drag.rowEl) {
     endTrackDrag(state.drag.rowEl);
   } else {
+    state.drag.ghostEl?.remove();
+    state.drag.ghostEl = null;
     state.drag.pointerId = null;
     state.drag.rowEl = null;
   }
@@ -1546,8 +1549,9 @@ function handleTrackRowPointerMove(event) {
 
   event.preventDefault();
   const row = state.drag.rowEl;
-  const rowRect = row.getBoundingClientRect();
-  row.style.transform = `translateY(${event.clientY - state.drag.grabOffsetY - rowRect.top}px)`;
+  if (state.drag.ghostEl) {
+    state.drag.ghostEl.style.top = `${event.clientY - state.drag.grabOffsetY}px`;
+  }
 
   const panel = refs.sheetTrackList.closest(".collection-sheet-panel");
   if (panel instanceof HTMLElement) {
@@ -1597,10 +1601,23 @@ function beginTrackDrag(row, pointerId) {
     // Some webviews can reject pointer capture; drag still works without it.
   }
 
+  const rowRect = row.getBoundingClientRect();
+  const ghost = row.cloneNode(true);
+  ghost.classList.remove("is-active");
+  ghost.classList.remove("is-drag-source");
+  ghost.classList.add("sheet-track-ghost");
+  ghost.style.width = `${rowRect.width}px`;
+  ghost.style.height = `${rowRect.height}px`;
+  ghost.style.left = `${rowRect.left}px`;
+  ghost.style.top = `${rowRect.top}px`;
+  document.body.append(ghost);
+
   state.drag.active = true;
+  state.drag.ghostEl = ghost;
   state.drag.suppressClickUntil = Date.now() + 700;
-  row.classList.add("is-dragging");
+  row.classList.add("is-drag-source");
   row.style.pointerEvents = "none";
+  refs.sheetTrackList.style.touchAction = "none";
   document.body.classList.add("is-dragging-tracks");
 }
 
@@ -1613,9 +1630,11 @@ function endTrackDrag(row) {
     // Ignore pointer capture release issues in embedded webviews.
   }
 
-  row.classList.remove("is-dragging");
+  state.drag.ghostEl?.remove();
+  state.drag.ghostEl = null;
+  row.classList.remove("is-drag-source");
   row.style.pointerEvents = "";
-  row.style.transform = "";
+  refs.sheetTrackList.style.touchAction = "";
   document.body.classList.remove("is-dragging-tracks");
   syncSheetTrackIndices();
   state.drag.active = false;
