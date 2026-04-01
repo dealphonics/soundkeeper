@@ -645,7 +645,7 @@ select {
   left: 8px;
   right: 8px;
   bottom: calc(72px + var(--safe-bottom));
-  z-index: 50;
+  z-index: 85;
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
   gap: 10px;
