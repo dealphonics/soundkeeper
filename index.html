@@ -6,48 +6,81 @@
   <title>Soundkeeper Mini App</title>
   <meta
     name="description"
-    content="Telegram Mini App для локального прослушивания своих треков с обложками и сохранением метаданных."
+    content="Telegram Mini App для локального прослушивания аудио, управления библиотекой, альбомами и плейлистами."
   >
   <link rel="stylesheet" href="styles.css">
   <script src="https://telegram.org/js/telegram-web-app.js?61"></script>
   <script src="app.js" defer></script>
 </head>
 <body>
-  <div class="app-shell">
-    <header class="topbar">
-      <div class="brand-block">
-        <p class="eyebrow">Telegram Mini App MVP</p>
+  <div class="app-frame">
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <p class="eyebrow">Telegram Mini App</p>
         <h1>Soundkeeper</h1>
-        <p class="brand-copy">
-          Локальный плеер для своих аудиофайлов: красивое оформление, приватная библиотека,
-          без обмена треками и без хранения mp3 на сервере.
-        </p>
+        <p class="sidebar-copy">Локальный плеер с навигацией по библиотеке, альбомам и плейлистам.</p>
       </div>
 
-      <div class="topbar-actions">
-        <button class="ghost-button" id="openAudioPicker" type="button">Выбрать аудио</button>
-        <button class="ghost-button" id="openCoverPicker" type="button">Выбрать обложку</button>
-      </div>
-    </header>
+      <nav class="sidebar-nav" aria-label="Основная навигация">
+        <button class="nav-button is-active" type="button" data-screen-target="home">
+          <span class="nav-icon">01</span>
+          <span>Home</span>
+        </button>
+        <button class="nav-button" type="button" data-screen-target="library">
+          <span class="nav-icon">02</span>
+          <span>Library</span>
+        </button>
+        <button class="nav-button" type="button" data-screen-target="collections">
+          <span class="nav-icon">03</span>
+          <span>Collections</span>
+        </button>
+        <button class="nav-button" type="button" data-screen-target="add">
+          <span class="nav-icon">04</span>
+          <span>Add</span>
+        </button>
+      </nav>
 
-    <main class="layout">
-      <section class="card hero-card">
-        <div class="hero-artwork">
+      <div class="sidebar-note">
+        <p class="section-label">Privacy Mode</p>
+        <p>Карточки остаются локально. Сам аудиофайл живет только в текущей сессии.</p>
+      </div>
+    </aside>
+
+    <div class="content-shell">
+      <header class="topbar">
+        <div class="topbar-copy">
+          <p class="eyebrow">Local Streaming Feel</p>
+          <h2>Выглядит как музыкальное приложение, но хранит все локально</h2>
+        </div>
+
+        <div class="topbar-actions">
+          <button class="ghost-button" id="openAudioPicker" type="button">Выбрать аудио</button>
+          <button class="ghost-button" id="openCoverPicker" type="button">Выбрать обложку</button>
+          <button class="primary-button" type="button" data-screen-target="add">Добавить трек</button>
+        </div>
+      </header>
+
+      <section class="card player-dock">
+        <div class="player-artwork">
           <img id="heroCover" alt="Обложка текущего трека">
           <div class="placeholder-art" id="heroPlaceholder" aria-hidden="true">
             <span>SK</span>
           </div>
         </div>
 
-        <div class="hero-copy">
-          <p class="section-label">Сейчас выбрано</p>
-          <h2 id="heroTitle">Загрузите первый трек</h2>
-          <p class="hero-meta" id="heroArtist">Аудио останется только на устройстве пользователя</p>
-          <div class="hero-status" id="heroStatus">После закрытия мини-приложения сам mp3 нужно выбрать заново.</div>
+        <div class="player-main">
+          <div class="player-heading">
+            <p class="section-label">Now Playing</p>
+            <h2 id="heroTitle">Загрузите первый трек</h2>
+            <p class="player-meta" id="heroArtist">Локальная библиотека, альбомы и плейлисты живут только на устройстве</p>
+          </div>
+
+          <p class="player-status" id="heroStatus">Выберите аудиофайл, сохраните карточку и управляйте библиотекой как в музыкальном приложении.</p>
 
           <div class="player-controls">
             <button class="primary-button" id="playPauseButton" type="button" disabled>Play</button>
-            <button class="ghost-button" id="focusImportButton" type="button">Добавить трек</button>
+            <button class="ghost-button" id="focusImportButton" type="button" data-screen-target="add">К экрану Add</button>
+            <button class="ghost-button" id="focusLibraryButton" type="button" data-screen-target="library">К библиотеке</button>
           </div>
 
           <div class="timeline-block">
@@ -68,75 +101,200 @@
         </div>
       </section>
 
-      <section class="card import-card" id="importSection">
-        <div class="card-heading">
-          <div>
-            <p class="section-label">Импорт</p>
-            <h2>Добавить трек в локальную библиотеку</h2>
-          </div>
-          <p class="muted-copy">Сохраняются метаданные и обложка. Аудио доступно только в текущей сессии.</p>
-        </div>
+      <main class="screen-stack">
+        <section class="screen is-active" id="homeScreen" data-screen="home">
+          <div class="screen-grid home-grid">
+            <section class="card spotlight-card">
+              <p class="section-label">Home</p>
+              <h2>Музыкальная домашняя страница вместо ленточного сайта</h2>
+              <p class="muted-copy">
+                Быстрые переходы, разделы, локальные коллекции и недавние треки. Все ближе к ощущению стримингового плеера.
+              </p>
 
-        <form id="trackForm" class="track-form">
-          <div class="file-summary">
-            <div>
-              <p class="summary-label">Аудио</p>
-              <p id="selectedAudioLabel">Файл не выбран</p>
+              <div class="stat-grid">
+                <article class="stat-card">
+                  <span class="stat-value" id="trackCountValue">0</span>
+                  <span class="stat-label">Tracks</span>
+                </article>
+                <article class="stat-card">
+                  <span class="stat-value" id="albumCountValue">0</span>
+                  <span class="stat-label">Albums</span>
+                </article>
+                <article class="stat-card">
+                  <span class="stat-value" id="playlistCountValue">0</span>
+                  <span class="stat-label">Playlists</span>
+                </article>
+              </div>
+
+              <div class="quick-grid">
+                <button class="feature-card" type="button" data-screen-target="library">
+                  <span class="feature-kicker">Browse</span>
+                  <strong>Перейти в Library</strong>
+                  <span>Искать треки и быстро запускать воспроизведение.</span>
+                </button>
+                <button class="feature-card" type="button" data-screen-target="collections">
+                  <span class="feature-kicker">Organize</span>
+                  <strong>Открыть Collections</strong>
+                  <span>Смотреть альбомы и собирать свои локальные плейлисты.</span>
+                </button>
+                <button class="feature-card" type="button" data-screen-target="add">
+                  <span class="feature-kicker">Import</span>
+                  <strong>Добавить трек</strong>
+                  <span>Выбрать аудио, обложку и сохранить новую карточку.</span>
+                </button>
+              </div>
+            </section>
+
+            <section class="card recent-card">
+              <div class="card-heading">
+                <div>
+                  <p class="section-label">Recently Added</p>
+                  <h2>Последние треки</h2>
+                </div>
+                <button class="ghost-button" type="button" data-screen-target="library">Вся библиотека</button>
+              </div>
+
+              <div class="track-list compact-list" id="recentTrackList" aria-live="polite"></div>
+            </section>
+          </div>
+        </section>
+
+        <section class="screen" id="libraryScreen" data-screen="library">
+          <section class="card screen-card">
+            <div class="card-heading">
+              <div>
+                <p class="section-label">Library</p>
+                <h2>Треки и быстрый запуск</h2>
+              </div>
+              <div class="search-wrap">
+                <input id="librarySearch" type="search" placeholder="Искать по названию, артисту или альбому">
+              </div>
             </div>
-            <div>
-              <p class="summary-label">Обложка</p>
-              <p id="selectedCoverLabel">Необязательно</p>
+
+            <div class="library-note">
+              <strong>Сценарий:</strong> карточки треков и коллекции сохраняются локально. Если открыли приложение заново,
+              нажмите <span class="inline-chip">Attach</span>, чтобы снова подключить аудиофайл к карточке.
             </div>
+
+            <div class="track-list" id="libraryTrackList" aria-live="polite"></div>
+          </section>
+        </section>
+
+        <section class="screen" id="collectionsScreen" data-screen="collections">
+          <div class="screen-grid collections-grid">
+            <section class="card collection-rail">
+              <div class="card-heading">
+                <div>
+                  <p class="section-label">Collections</p>
+                  <h2>Albums & Playlists</h2>
+                </div>
+              </div>
+
+              <div class="chip-row">
+                <button class="chip-button is-active" type="button" data-collections-tab="albums">Albums</button>
+                <button class="chip-button" type="button" data-collections-tab="playlists">Playlists</button>
+              </div>
+
+              <form class="playlist-form" id="playlistForm">
+                <div class="playlist-form-copy">
+                  <p class="summary-label">Новый плейлист</p>
+                  <p>Создайте локальный плейлист и добавляйте в него треки из библиотеки.</p>
+                </div>
+
+                <div class="playlist-form-grid">
+                  <label class="field">
+                    <span>Название плейлиста</span>
+                    <input id="playlistNameInput" maxlength="60" placeholder="Например, Evening Drive">
+                  </label>
+                  <label class="field">
+                    <span>Описание</span>
+                    <input id="playlistDescriptionInput" maxlength="100" placeholder="Необязательно">
+                  </label>
+                </div>
+
+                <button class="primary-button" id="createPlaylistButton" type="submit">Создать плейлист</button>
+              </form>
+
+              <div class="collection-grid" id="collectionGrid" aria-live="polite"></div>
+            </section>
+
+            <section class="card collection-detail">
+              <div class="detail-header">
+                <div class="detail-art" id="collectionDetailArt">
+                  <span>SK</span>
+                </div>
+                <div class="detail-copy">
+                  <p class="section-label" id="collectionDetailType">Select</p>
+                  <h2 id="collectionDetailTitle">Выберите альбом или плейлист</h2>
+                  <p class="muted-copy" id="collectionDetailDescription">Здесь появится подборка треков для выбранной коллекции.</p>
+                </div>
+              </div>
+
+              <div class="track-list" id="collectionTrackList" aria-live="polite"></div>
+            </section>
           </div>
+        </section>
 
-          <div class="form-grid">
-            <label class="field">
-              <span>Название трека</span>
-              <input id="titleInput" name="title" maxlength="80" placeholder="Например, Night Drive">
-            </label>
+        <section class="screen" id="addScreen" data-screen="add">
+          <section class="card screen-card import-card">
+            <div class="card-heading">
+              <div>
+                <p class="section-label">Add</p>
+                <h2>Импорт нового трека</h2>
+              </div>
+              <p class="muted-copy">Сохраняются карточка, обложка и метаданные. Аудио останется только в текущей сессии.</p>
+            </div>
 
-            <label class="field">
-              <span>Исполнитель</span>
-              <input id="artistInput" name="artist" maxlength="80" placeholder="Ваше имя или группа">
-            </label>
+            <form id="trackForm" class="track-form">
+              <div class="file-summary">
+                <div>
+                  <p class="summary-label">Аудио</p>
+                  <p id="selectedAudioLabel">Файл не выбран</p>
+                </div>
+                <div>
+                  <p class="summary-label">Обложка</p>
+                  <p id="selectedCoverLabel">Необязательно</p>
+                </div>
+              </div>
 
-            <label class="field">
-              <span>Альбом</span>
-              <input id="albumInput" name="album" maxlength="80" placeholder="Необязательно">
-            </label>
+              <div class="form-grid">
+                <label class="field">
+                  <span>Название трека</span>
+                  <input id="titleInput" name="title" maxlength="80" placeholder="Например, Night Drive">
+                </label>
 
-            <label class="field">
-              <span>Длительность</span>
-              <input id="durationPreview" readonly value="Определится после выбора аудио">
-            </label>
-          </div>
+                <label class="field">
+                  <span>Исполнитель</span>
+                  <input id="artistInput" name="artist" maxlength="80" placeholder="Ваше имя или группа">
+                </label>
 
-          <div class="import-actions">
-            <button class="primary-button" id="saveTrackButton" type="submit" disabled>Сохранить в библиотеку</button>
-            <button class="ghost-button" id="clearDraftButton" type="button">Очистить форму</button>
-          </div>
-        </form>
-      </section>
+                <label class="field">
+                  <span>Альбом</span>
+                  <input id="albumInput" name="album" maxlength="80" placeholder="Например, Midnight Tapes">
+                </label>
 
-      <section class="card library-card">
-        <div class="card-heading">
-          <div>
-            <p class="section-label">Библиотека</p>
-            <h2>Локально сохраненные карточки треков</h2>
-          </div>
-          <div class="search-wrap">
-            <input id="librarySearch" type="search" placeholder="Искать по названию или исполнителю">
-          </div>
-        </div>
+                <label class="field">
+                  <span>Длительность</span>
+                  <input id="durationPreview" readonly value="Определится после выбора аудио">
+                </label>
+              </div>
 
-        <div class="library-note">
-          <strong>Важно:</strong> на повторном открытии трек останется в библиотеке как карточка, но кнопку
-          <span class="inline-chip">Play</span> нужно заново активировать через <span class="inline-chip">Подключить аудио</span>.
-        </div>
+              <div class="import-actions">
+                <button class="primary-button" id="saveTrackButton" type="submit" disabled>Сохранить в библиотеку</button>
+                <button class="ghost-button" id="clearDraftButton" type="button">Очистить форму</button>
+              </div>
+            </form>
+          </section>
+        </section>
+      </main>
 
-        <div class="track-list" id="trackList" aria-live="polite"></div>
-      </section>
-    </main>
+      <nav class="mobile-nav" aria-label="Мобильная навигация">
+        <button class="mobile-nav-button is-active" type="button" data-screen-target="home">Home</button>
+        <button class="mobile-nav-button" type="button" data-screen-target="library">Library</button>
+        <button class="mobile-nav-button" type="button" data-screen-target="collections">Collections</button>
+        <button class="mobile-nav-button" type="button" data-screen-target="add">Add</button>
+      </nav>
+    </div>
   </div>
 
   <input id="audioInput" type="file" accept="audio/*" hidden>

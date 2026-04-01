@@ -29,8 +29,8 @@ class Settings:
   drop_pending_updates: bool
 
   @classmethod
-  def from_prompt(cls) -> "Settings":
-    token = prompt_secret("Введите токен Telegram-бота")
+  def from_prompt(cls, hide_token_input: bool = False) -> "Settings":
+    token = prompt_secret("Введите токен Telegram-бота", hidden=hide_token_input)
     mini_app_url = os.getenv("SOUNDKEEPER_MINI_APP_URL", "").strip()
 
     if not token:
@@ -59,12 +59,14 @@ class TelegramApiError(RuntimeError):
   pass
 
 
-def prompt_secret(label: str) -> str:
+def prompt_secret(label: str, hidden: bool = True) -> str:
   if not sys.stdin.isatty():
     return ""
 
   try:
-    return getpass.getpass(f"{label}: ").strip()
+    if hidden:
+      return getpass.getpass(f"{label}: ").strip()
+    return input(f"{label}: ").strip()
   except (EOFError, KeyboardInterrupt):
     print("", file=sys.stderr)
     return ""
@@ -215,6 +217,7 @@ def handle_message(api: TelegramBotApi, settings: Settings, message: dict[str, A
     return
 
   text = (message.get("text") or "").strip()
+  logging.info("Incoming message from chat_id=%s type=%s text=%r", chat_id, chat.get("type"), text)
   if not text:
     api.send_message(chat_id, "Используйте /start, чтобы открыть Soundkeeper Mini App.")
     return
@@ -262,6 +265,8 @@ def run_polling(api: TelegramBotApi, settings: Settings) -> None:
     try:
       updates = api.get_updates(offset=offset, timeout_seconds=settings.poll_timeout)
       backoff_seconds = 2
+      if updates:
+        logging.info("Received %s update(s)", len(updates))
 
       for update in updates:
         offset = max(offset, int(update["update_id"]) + 1)
@@ -293,6 +298,16 @@ def parse_args() -> argparse.Namespace:
     choices=["DEBUG", "INFO", "WARNING", "ERROR"],
     help="Python log level",
   )
+  parser.add_argument(
+    "--show-token-input",
+    action="store_true",
+    help="Prompt for the bot token in visible mode, useful if hidden paste does not work in your terminal",
+  )
+  parser.add_argument(
+    "--hide-token-input",
+    action="store_true",
+    help="Prompt for the bot token in hidden mode",
+  )
   return parser.parse_args()
 
 
@@ -301,7 +316,10 @@ def main() -> int:
   logging.basicConfig(level=getattr(logging, args.log_level), format="%(asctime)s %(levelname)s %(message)s")
 
   try:
-    settings = Settings.from_prompt()
+    hide_token_input = args.hide_token_input
+    if args.show_token_input:
+      hide_token_input = False
+    settings = Settings.from_prompt(hide_token_input=hide_token_input)
   except ValueError as error:
     print(error, file=sys.stderr)
     return 2
