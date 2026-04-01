@@ -4,6 +4,7 @@ const DB_NAME = "soundkeeper-db";
 const DB_VERSION = 2;
 const TRACK_STORE = "tracks";
 const PLAYLIST_STORE = "playlists";
+const TELEGRAM_WEBAPP_SCRIPT_URL = "https://telegram.org/js/telegram-web-app.js?61";
 
 const state = {
   library: [],
@@ -19,9 +20,11 @@ const state = {
   playbackQueue: [],
   currentQueueIndex: -1,
   storageApi: null,
+  storageReadyPromise: null,
 };
 
 const refs = {};
+let telegramScriptPromise = null;
 
 document.addEventListener("DOMContentLoaded", () => {
   void init();
@@ -30,17 +33,59 @@ document.addEventListener("DOMContentLoaded", () => {
 async function init() {
   cacheRefs();
   bindEvents();
-  applyTelegramChrome();
-  state.storageApi = await createStorageApi();
+  renderApp();
+  void ensureTelegramBridge();
+  void hydrateLibrary();
+}
 
+async function hydrateLibrary() {
+  const storageApi = await ensureStorageReady();
   const [tracks, playlists] = await Promise.all([
-    state.storageApi.listTracks(),
-    state.storageApi.listPlaylists(),
+    storageApi.listTracks(),
+    storageApi.listPlaylists(),
   ]);
 
   state.library = tracks;
   state.playlists = playlists;
   renderApp();
+}
+
+function ensureStorageReady() {
+  if (state.storageApi) {
+    return Promise.resolve(state.storageApi);
+  }
+
+  if (!state.storageReadyPromise) {
+    state.storageReadyPromise = createStorageApi().then((storageApi) => {
+      state.storageApi = storageApi;
+      return storageApi;
+    });
+  }
+
+  return state.storageReadyPromise;
+}
+
+function ensureTelegramBridge() {
+  if (window.Telegram?.WebApp) {
+    applyTelegramChrome();
+    return Promise.resolve();
+  }
+
+  if (!telegramScriptPromise) {
+    telegramScriptPromise = new Promise((resolve) => {
+      const script = document.createElement("script");
+      script.src = TELEGRAM_WEBAPP_SCRIPT_URL;
+      script.async = true;
+      script.onload = () => {
+        applyTelegramChrome();
+        resolve();
+      };
+      script.onerror = () => resolve();
+      document.head.append(script);
+    });
+  }
+
+  return telegramScriptPromise;
 }
 
 function cacheRefs() {
@@ -176,6 +221,7 @@ function setActiveScreen(screen) {
   renderNavigation();
   renderScreens();
   renderScreenTitle();
+  renderVisibleScreen();
 }
 
 function setActiveLibraryView(type, id = null) {
@@ -190,9 +236,17 @@ function renderApp() {
   renderScreens();
   renderScreenTitle();
   renderDraft();
+  renderVisibleScreen();
+  renderMiniPlayer();
+}
+
+function renderVisibleScreen() {
+  if (state.activeScreen !== "library") {
+    return;
+  }
+
   renderLibrarySidebar();
   renderLibraryContent();
-  renderMiniPlayer();
 }
 
 function renderNavigation() {
@@ -376,6 +430,8 @@ async function handleAttachPicked() {
 }
 
 async function saveTrack() {
+  await ensureStorageReady();
+
   if (!state.selectedAudio?.file) {
     return;
   }
@@ -406,6 +462,8 @@ async function saveTrack() {
 }
 
 async function createPlaylist() {
+  await ensureStorageReady();
+
   const name = refs.playlistNameInput.value.trim();
   if (!name) {
     refs.playlistNameInput.focus();
@@ -477,6 +535,7 @@ async function handleTrackAction(button) {
 }
 
 async function removePlaylist(playlistId) {
+  await ensureStorageReady();
   await state.storageApi.removePlaylist(playlistId);
   state.playlists = await state.storageApi.listPlaylists();
   ensureValidLibraryView();
@@ -485,6 +544,7 @@ async function removePlaylist(playlistId) {
 }
 
 async function addTrackToPlaylist(trackId, playlistId) {
+  await ensureStorageReady();
   const playlist = state.playlists.find((item) => item.id === playlistId);
   if (!playlist) {
     return;
@@ -502,6 +562,7 @@ async function addTrackToPlaylist(trackId, playlistId) {
 }
 
 async function removeTrackFromPlaylist(trackId, playlistId) {
+  await ensureStorageReady();
   const playlist = state.playlists.find((item) => item.id === playlistId);
   if (!playlist) {
     return;
@@ -516,6 +577,7 @@ async function removeTrackFromPlaylist(trackId, playlistId) {
 }
 
 async function removeTrack(trackId) {
+  await ensureStorageReady();
   await state.storageApi.removeTrack(trackId);
 
   const session = state.sessionAudio.get(trackId);
