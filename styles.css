@@ -814,6 +814,10 @@ input[type="range"] {
     border-radius: 20px;
   }
 
+  .import-card {
+    padding-bottom: calc(156px + var(--safe-bottom));
+  }
+
   .library-hub {
     padding-bottom: calc(156px + var(--safe-bottom));
   }
