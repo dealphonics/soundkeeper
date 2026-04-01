@@ -134,7 +134,7 @@
       </header>
 
       <div class="collection-sheet-hero">
-        <div class="collection-sheet-cover">
+        <div class="collection-sheet-cover" id="sheetCoverWrap">
           <img id="sheetCover" alt="Обложка подборки">
           <div class="collection-sheet-placeholder" id="sheetCoverPlaceholder" aria-hidden="true">
             <span>SK</span>
@@ -148,6 +148,7 @@
       <div class="collection-sheet-actions">
         <button class="ghost-button" id="sheetPlayButton" type="button">По порядку</button>
         <button class="ghost-button" id="sheetShuffleButton" type="button">Перемешать</button>
+        <button class="ghost-button is-hidden" id="sheetPlaylistCoverButton" type="button">Сменить обложку</button>
       </div>
 
       <div class="collection-track-list" id="sheetTrackList" aria-live="polite"></div>
@@ -212,6 +213,7 @@
 
   <input id="audioInput" type="file" accept="audio/*" hidden>
   <input id="coverInput" type="file" accept="image/*" hidden>
+  <input id="playlistCoverInput" type="file" accept="image/*" hidden>
   <input id="attachAudioInput" type="file" accept="audio/*" hidden>
   <audio id="audioElement" preload="metadata"></audio>
 </body>

@@ -12,6 +12,7 @@ const state = {
   sessionAudio: new Map(),
   currentTrackId: null,
   pendingAttachTrackId: null,
+  pendingPlaylistCoverId: null,
   selectedAudio: null,
   selectedCoverDataUrl: "",
   activeScreen: "home",
@@ -99,6 +100,7 @@ function ensureTelegramBridge() {
 function cacheRefs() {
   refs.audioInput = document.getElementById("audioInput");
   refs.coverInput = document.getElementById("coverInput");
+  refs.playlistCoverInput = document.getElementById("playlistCoverInput");
   refs.attachAudioInput = document.getElementById("attachAudioInput");
   refs.trackForm = document.getElementById("trackForm");
   refs.playlistForm = document.getElementById("playlistForm");
@@ -125,10 +127,12 @@ function cacheRefs() {
   refs.sheetType = document.getElementById("sheetType");
   refs.sheetTitle = document.getElementById("sheetTitle");
   refs.sheetMeta = document.getElementById("sheetMeta");
+  refs.sheetCoverWrap = document.getElementById("sheetCoverWrap");
   refs.sheetCover = document.getElementById("sheetCover");
   refs.sheetCoverPlaceholder = document.getElementById("sheetCoverPlaceholder");
   refs.sheetPlayButton = document.getElementById("sheetPlayButton");
   refs.sheetShuffleButton = document.getElementById("sheetShuffleButton");
+  refs.sheetPlaylistCoverButton = document.getElementById("sheetPlaylistCoverButton");
   refs.sheetTrackList = document.getElementById("sheetTrackList");
   refs.trackMenu = document.getElementById("trackMenu");
   refs.closeTrackMenu = document.getElementById("closeTrackMenu");
@@ -161,6 +165,9 @@ function bindEvents() {
   refs.coverInput.addEventListener("change", () => {
     void handleCoverPicked();
   });
+  refs.playlistCoverInput.addEventListener("change", () => {
+    void handlePlaylistCoverPicked();
+  });
   refs.attachAudioInput.addEventListener("change", () => {
     void handleAttachPicked();
   });
@@ -181,6 +188,15 @@ function bindEvents() {
   });
   refs.sheetShuffleButton.addEventListener("click", () => {
     void playOpenCollection(true);
+  });
+  refs.sheetPlaylistCoverButton.addEventListener("click", () => {
+    const view = getOverlayViewData();
+    if (!view?.playlistId) {
+      return;
+    }
+
+    state.pendingPlaylistCoverId = view.playlistId;
+    refs.playlistCoverInput.click();
   });
 
   refs.closeTrackMenu.addEventListener("click", closeTrackMenu);
@@ -344,12 +360,14 @@ function renderCollectionSheet() {
   refs.sheetMeta.textContent = view.meta;
   refs.sheetPlayButton.disabled = tracks.length === 0;
   refs.sheetShuffleButton.disabled = tracks.length === 0;
+  refs.sheetCoverWrap.classList.toggle("is-hidden", !view.showCover);
+  refs.sheetPlaylistCoverButton.classList.toggle("is-hidden", !view.playlistId);
 
-  if (view.coverDataUrl) {
+  if (view.showCover && view.coverDataUrl) {
     refs.sheetCover.src = view.coverDataUrl;
     refs.sheetCover.style.display = "block";
     refs.sheetCoverPlaceholder.style.display = "none";
-  } else {
+  } else if (view.showCover) {
     refs.sheetCover.removeAttribute("src");
     refs.sheetCover.style.display = "none";
     refs.sheetCoverPlaceholder.style.display = "grid";
@@ -615,6 +633,29 @@ async function handleCoverPicked() {
   renderDraft();
 }
 
+async function handlePlaylistCoverPicked() {
+  const file = refs.playlistCoverInput.files?.[0];
+  const playlistId = state.pendingPlaylistCoverId;
+  refs.playlistCoverInput.value = "";
+  state.pendingPlaylistCoverId = null;
+
+  if (!file || !playlistId) {
+    return;
+  }
+
+  await ensureStorageReady();
+  const playlist = state.playlists.find((item) => item.id === playlistId);
+  if (!playlist) {
+    return;
+  }
+
+  playlist.coverDataUrl = await compressImageToDataUrl(file, 640);
+  playlist.updatedAt = new Date().toISOString();
+  await state.storageApi.savePlaylist(playlist);
+  state.playlists = await state.storageApi.listPlaylists();
+  renderApp();
+}
+
 async function handleAttachPicked() {
   const file = refs.attachAudioInput.files?.[0];
   const trackId = state.pendingAttachTrackId;
@@ -685,6 +726,7 @@ async function createPlaylist() {
     id: createId(),
     name,
     description: "",
+    coverDataUrl: "",
     trackIds: [],
     addedAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
@@ -937,6 +979,7 @@ function getOverlayViewData() {
       meta: [album.artistLabel, formatTrackCount(album.trackIds.length)].filter(Boolean).join(" · "),
       trackIds: album.trackIds,
       coverDataUrl: album.coverDataUrl,
+      showCover: true,
       playlistId: null,
     };
   }
@@ -954,7 +997,8 @@ function getOverlayViewData() {
       title: playlist.name,
       meta: formatTrackCount(tracks.length),
       trackIds: playlist.trackIds,
-      coverDataUrl: getCollectionCoverDataUrl(tracks),
+      coverDataUrl: playlist.coverDataUrl || getCollectionCoverDataUrl(tracks),
+      showCover: true,
       playlistId: playlist.id,
     };
   }
@@ -966,7 +1010,8 @@ function getOverlayViewData() {
     title: "Все треки",
     meta: formatTrackCount(allTracks.length),
     trackIds: allTracks.map((track) => track.id),
-    coverDataUrl: getCollectionCoverDataUrl(allTracks),
+    coverDataUrl: "",
+    showCover: false,
     playlistId: null,
   };
 }
@@ -981,7 +1026,7 @@ function getPlaylistCardData(playlist) {
     id: playlist.id,
     title: playlist.name,
     meta: formatTrackCount(tracks.length),
-    coverDataUrl: getCollectionCoverDataUrl(tracks),
+    coverDataUrl: playlist.coverDataUrl || getCollectionCoverDataUrl(tracks),
   };
 }
 
