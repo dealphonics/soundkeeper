@@ -625,7 +625,7 @@ function buildSheetTrackRowMarkup(track, index, view) {
 
   return `
     <article class="sheet-track-row ${isActive ? "is-active" : ""}" data-track-id="${track.id}">
-      <button class="sheet-track-main" type="button" data-track-main="${track.id}">
+      <div class="sheet-track-main" role="button" tabindex="0" data-track-main="${track.id}">
         <span class="sheet-track-index">${index + 1}</span>
         ${coverMarkup}
         <span class="sheet-track-copy">
@@ -634,7 +634,7 @@ function buildSheetTrackRowMarkup(track, index, view) {
           <span class="sheet-track-album">${escapeHtml(track.album || "Сингл")}</span>
         </span>
         <span class="sheet-track-duration">${formatDuration(track.durationSeconds || 0)}</span>
-      </button>
+      </div>
 
       <button
         class="track-more"
@@ -1521,6 +1521,11 @@ function handleTrackRowPointerDown(event) {
 
   clearTrackDragTimer();
   const rowRect = row.getBoundingClientRect();
+  try {
+    row.setPointerCapture(event.pointerId);
+  } catch (error) {
+    // Telegram WebView can ignore pointer capture before drag starts.
+  }
   state.drag.pointerId = event.pointerId;
   state.drag.rowEl = row;
   state.drag.startX = event.clientX;
@@ -1539,8 +1544,15 @@ function handleTrackRowPointerMove(event) {
 
   if (!state.drag.active) {
     const moved = Math.hypot(event.clientX - state.drag.startX, event.clientY - state.drag.startY);
-    if (moved > 8) {
+    if (moved > 18) {
       clearTrackDragTimer();
+      try {
+        if (state.drag.rowEl?.hasPointerCapture?.(event.pointerId)) {
+          state.drag.rowEl.releasePointerCapture(event.pointerId);
+        }
+      } catch (error) {
+        // Ignore release failures in embedded webviews.
+      }
       state.drag.pointerId = null;
       state.drag.rowEl = null;
     }
@@ -1595,12 +1607,6 @@ function beginTrackDrag(row, pointerId) {
     return;
   }
 
-  try {
-    row.setPointerCapture(pointerId);
-  } catch (error) {
-    // Some webviews can reject pointer capture; drag still works without it.
-  }
-
   const rowRect = row.getBoundingClientRect();
   const ghost = row.cloneNode(true);
   ghost.classList.remove("is-active");
@@ -1616,8 +1622,11 @@ function beginTrackDrag(row, pointerId) {
   state.drag.ghostEl = ghost;
   state.drag.suppressClickUntil = Date.now() + 700;
   row.classList.add("is-drag-source");
-  row.style.pointerEvents = "none";
   refs.sheetTrackList.style.touchAction = "none";
+  const panel = refs.sheetTrackList.closest(".collection-sheet-panel");
+  if (panel instanceof HTMLElement) {
+    panel.style.touchAction = "none";
+  }
   document.body.classList.add("is-dragging-tracks");
 }
 
@@ -1633,8 +1642,11 @@ function endTrackDrag(row) {
   state.drag.ghostEl?.remove();
   state.drag.ghostEl = null;
   row.classList.remove("is-drag-source");
-  row.style.pointerEvents = "";
   refs.sheetTrackList.style.touchAction = "";
+  const panel = refs.sheetTrackList.closest(".collection-sheet-panel");
+  if (panel instanceof HTMLElement) {
+    panel.style.touchAction = "";
+  }
   document.body.classList.remove("is-dragging-tracks");
   syncSheetTrackIndices();
   state.drag.active = false;
