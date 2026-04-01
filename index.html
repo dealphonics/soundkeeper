@@ -83,50 +83,90 @@
         </section>
 
         <section class="screen" id="libraryScreen" data-screen="library">
-          <div class="library-layout">
-            <aside class="library-sidebar card">
-              <button class="library-source is-active" type="button" data-library-target="all">Все треки</button>
+          <section class="card library-hub">
+            <section class="library-section">
+              <h3>Медиатека</h3>
 
-              <section class="library-group">
+              <button class="library-entry library-entry-main" id="allTracksButton" type="button" data-library-open="all">
+                <span class="library-entry-art library-entry-art-glyph">♪</span>
+                <span class="library-entry-copy">
+                  <span class="library-entry-title">Все треки</span>
+                  <span class="library-entry-meta" id="allTracksCount">0 треков</span>
+                </span>
+                <span class="library-entry-arrow">></span>
+              </button>
+            </section>
+
+            <section class="library-section">
+              <div class="section-head">
                 <h3>Альбомы</h3>
-                <div class="library-source-list" id="albumList" aria-live="polite"></div>
-              </section>
+                <span id="albumCountLabel">0</span>
+              </div>
+              <div class="library-stack" id="albumList" aria-live="polite"></div>
+            </section>
 
-              <section class="library-group">
-                <div class="group-heading">
-                  <h3>Плейлисты</h3>
-                </div>
-
-                <form class="playlist-form playlist-form-compact" id="playlistForm">
-                  <input id="playlistNameInput" maxlength="60" placeholder="Новый плейлист" aria-label="Название плейлиста">
-                  <button class="primary-button icon-button" id="createPlaylistButton" type="submit">+</button>
-                </form>
-
-                <div class="library-source-list" id="playlistList" aria-live="polite"></div>
-              </section>
-            </aside>
-
-            <section class="library-content card">
-              <div class="card-heading library-heading">
-                <div class="library-heading-copy">
-                  <p id="libraryViewType">Медиатека</p>
-                  <h2 id="libraryViewTitle">Все треки</h2>
-                  <p id="libraryViewMeta"></p>
-                </div>
-
-                <div class="library-tools">
-                  <input id="librarySearch" type="search" placeholder="Поиск">
-                  <button class="ghost-button" id="playCollectionButton" type="button">По порядку</button>
-                  <button class="ghost-button" id="shuffleCollectionButton" type="button">Перемешать</button>
-                </div>
+            <section class="library-section">
+              <div class="section-head">
+                <h3>Плейлисты</h3>
+                <span id="playlistCountLabel">0</span>
               </div>
 
-              <div class="track-list" id="libraryTrackList" aria-live="polite"></div>
+              <form class="playlist-create" id="playlistForm">
+                <input id="playlistNameInput" maxlength="60" placeholder="Новый плейлист" aria-label="Название плейлиста">
+                <button class="primary-button icon-button" id="createPlaylistButton" type="submit">+</button>
+              </form>
+
+              <div class="library-stack" id="playlistList" aria-live="polite"></div>
             </section>
-          </div>
+          </section>
         </section>
       </main>
     </div>
+  </div>
+
+  <div class="collection-sheet is-hidden" id="collectionSheet" aria-hidden="true">
+    <button class="collection-sheet-backdrop" id="closeCollectionSheet" type="button" aria-label="Закрыть"></button>
+
+    <section class="collection-sheet-panel" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
+      <header class="collection-sheet-topbar">
+        <button class="ghost-icon" id="sheetBackButton" type="button" aria-label="Назад">&lt;</button>
+        <span id="sheetType">Подборка</span>
+      </header>
+
+      <div class="collection-sheet-hero">
+        <div class="collection-sheet-cover">
+          <img id="sheetCover" alt="Обложка подборки">
+          <div class="collection-sheet-placeholder" id="sheetCoverPlaceholder" aria-hidden="true">
+            <span>SK</span>
+          </div>
+        </div>
+
+        <h2 id="sheetTitle">Все треки</h2>
+        <p id="sheetMeta"></p>
+      </div>
+
+      <div class="collection-sheet-actions">
+        <button class="ghost-button" id="sheetPlayButton" type="button">По порядку</button>
+        <button class="ghost-button" id="sheetShuffleButton" type="button">Перемешать</button>
+      </div>
+
+      <div class="collection-track-list" id="sheetTrackList" aria-live="polite"></div>
+    </section>
+  </div>
+
+  <div class="track-menu is-hidden" id="trackMenu" aria-hidden="true">
+    <button class="track-menu-backdrop" id="closeTrackMenu" type="button" aria-label="Закрыть меню"></button>
+
+    <section class="track-menu-panel" aria-modal="true" aria-labelledby="trackMenuTitle">
+      <div class="track-menu-head">
+        <h3 id="trackMenuTitle">Трек</h3>
+        <p id="trackMenuSubtitle"></p>
+      </div>
+
+      <button class="track-menu-item" type="button" data-track-menu-action="queue">Добавить в очередь</button>
+      <div class="track-menu-group" id="trackMenuPlaylistActions"></div>
+      <button class="track-menu-item remove is-hidden" id="trackMenuRemoveButton" type="button" data-track-menu-action="remove-from-playlist">Убрать из плейлиста</button>
+    </section>
   </div>
 
   <div class="mini-player is-hidden" id="miniPlayer">
@@ -143,9 +183,9 @@
     </div>
 
     <div class="mini-player-controls">
-      <button class="ghost-button icon-button" id="prevTrackButton" type="button" aria-label="Предыдущий трек">&#9664;</button>
-      <button class="primary-button icon-button" id="playPauseButton" type="button" disabled>Слушать</button>
-      <button class="ghost-button icon-button" id="nextTrackButton" type="button" aria-label="Следующий трек">&#9654;</button>
+      <button class="ghost-button icon-button" id="prevTrackButton" type="button" aria-label="Предыдущий трек">&lt;&lt;</button>
+      <button class="primary-button icon-button" id="playPauseButton" type="button" disabled">&gt;</button>
+      <button class="ghost-button icon-button" id="nextTrackButton" type="button" aria-label="Следующий трек">&gt;&gt;</button>
     </div>
 
     <div class="mini-player-progress">
