@@ -95,6 +95,11 @@
                 </span>
                 <span class="library-entry-arrow">></span>
               </button>
+
+              <div class="library-actions">
+                <button class="ghost-button" id="openBulkAttachPicker" type="button">Подключить все файлы</button>
+                <p class="library-note" id="bulkAttachStatus"></p>
+              </div>
             </section>
 
             <section class="library-section">
@@ -215,6 +220,7 @@
   <input id="coverInput" type="file" accept="image/*" hidden>
   <input id="playlistCoverInput" type="file" accept="image/*" hidden>
   <input id="attachAudioInput" type="file" accept="audio/*" hidden>
+  <input id="bulkAttachAudioInput" type="file" accept="audio/*" multiple hidden>
   <audio id="audioElement" preload="metadata"></audio>
 </body>
 </html>

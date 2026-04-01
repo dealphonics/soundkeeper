@@ -300,6 +300,23 @@ select {
   gap: 10px;
 }
 
+.library-actions {
+  display: grid;
+  gap: 6px;
+}
+
+.library-actions .ghost-button {
+  width: fit-content;
+}
+
+.library-note {
+  min-height: 1em;
+  margin: 0;
+  padding: 0 2px;
+  color: var(--muted);
+  font-size: 0.84rem;
+}
+
 .library-section h3 {
   margin: 0;
   font-size: 0.98rem;

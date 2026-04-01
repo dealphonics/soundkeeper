@@ -102,8 +102,11 @@ function cacheRefs() {
   refs.coverInput = document.getElementById("coverInput");
   refs.playlistCoverInput = document.getElementById("playlistCoverInput");
   refs.attachAudioInput = document.getElementById("attachAudioInput");
+  refs.bulkAttachAudioInput = document.getElementById("bulkAttachAudioInput");
   refs.trackForm = document.getElementById("trackForm");
   refs.playlistForm = document.getElementById("playlistForm");
+  refs.openBulkAttachPicker = document.getElementById("openBulkAttachPicker");
+  refs.bulkAttachStatus = document.getElementById("bulkAttachStatus");
   refs.titleInput = document.getElementById("titleInput");
   refs.artistInput = document.getElementById("artistInput");
   refs.albumInput = document.getElementById("albumInput");
@@ -158,6 +161,7 @@ function bindEvents() {
   document.getElementById("openAudioPicker").addEventListener("click", () => refs.audioInput.click());
   document.getElementById("openCoverPicker").addEventListener("click", () => refs.coverInput.click());
   document.getElementById("clearDraftButton").addEventListener("click", clearDraft);
+  refs.openBulkAttachPicker.addEventListener("click", () => refs.bulkAttachAudioInput.click());
 
   refs.audioInput.addEventListener("change", () => {
     void handleAudioPicked();
@@ -170,6 +174,9 @@ function bindEvents() {
   });
   refs.attachAudioInput.addEventListener("change", () => {
     void handleAttachPicked();
+  });
+  refs.bulkAttachAudioInput.addEventListener("change", () => {
+    void handleBulkAttachPicked();
   });
 
   refs.trackForm.addEventListener("submit", (event) => {
@@ -331,9 +338,14 @@ function renderDraft() {
 
 function renderLibraryHub() {
   const albums = getAlbums();
+  const connectedTrackCount = state.library.filter((track) => state.sessionAudio.has(track.id)).length;
   refs.allTracksCount.textContent = formatTrackCount(state.library.length);
   refs.albumCountLabel.textContent = String(albums.length);
   refs.playlistCountLabel.textContent = String(state.playlists.length);
+  refs.openBulkAttachPicker.disabled = state.library.length === 0;
+  refs.bulkAttachStatus.textContent = state.library.length
+    ? `${connectedTrackCount} из ${state.library.length} подключено`
+    : "";
 
   refs.albumList.innerHTML = albums.length
     ? albums.map((album) => buildLibraryEntryMarkup(album, "album")).join("")
@@ -682,6 +694,41 @@ async function handleAttachPicked() {
   }
 }
 
+async function handleBulkAttachPicked() {
+  const files = Array.from(refs.bulkAttachAudioInput.files || []);
+  refs.bulkAttachAudioInput.value = "";
+
+  if (!files.length) {
+    return;
+  }
+
+  await ensureStorageReady();
+  if (!state.library.length) {
+    state.library = await state.storageApi.listTracks();
+  }
+
+  const matchPlan = buildBulkAttachPlan(files);
+  for (const [trackId, file] of matchPlan.entries()) {
+    const previousSession = state.sessionAudio.get(trackId);
+    if (previousSession?.objectUrl) {
+      URL.revokeObjectURL(previousSession.objectUrl);
+    }
+
+    state.sessionAudio.set(trackId, {
+      objectUrl: URL.createObjectURL(file),
+      fileName: file.name,
+      mimeType: file.type,
+      fileSize: file.size || 0,
+    });
+  }
+
+  if (state.currentTrackId && state.sessionAudio.has(state.currentTrackId)) {
+    renderMiniPlayer();
+  }
+
+  renderApp();
+}
+
 async function saveTrack() {
   await ensureStorageReady();
 
@@ -696,6 +743,7 @@ async function saveTrack() {
     album: refs.albumInput.value.trim() || "",
     durationSeconds: state.selectedAudio.durationSeconds || 0,
     fileName: state.selectedAudio.file.name,
+    fileSize: state.selectedAudio.file.size || 0,
     mimeType: state.selectedAudio.file.type || "audio/mpeg",
     coverDataUrl: state.selectedCoverDataUrl,
     addedAt: new Date().toISOString(),
@@ -1090,6 +1138,62 @@ function getTrackById(trackId) {
   return state.library.find((track) => track.id === trackId) || null;
 }
 
+function buildBulkAttachPlan(files) {
+  const unmatchedTracks = state.library.filter((track) => !state.sessionAudio.has(track.id));
+  const plans = new Map();
+
+  for (const file of files) {
+    const match = findTrackForAudioFile(file, unmatchedTracks, plans);
+    if (!match) {
+      continue;
+    }
+
+    plans.set(match.id, file);
+  }
+
+  return plans;
+}
+
+function findTrackForAudioFile(file, tracks, plans) {
+  const fileNameKey = toFileLookupKey(file.name);
+  const titleKey = normalizeText(stripExtension(file.name)).replace(/-/g, "");
+  const fileSize = Number(file.size) || 0;
+
+  const candidates = tracks
+    .filter((track) => !plans.has(track.id))
+    .map((track) => ({
+      track,
+      score: scoreTrackFileMatch(track, fileNameKey, titleKey, fileSize),
+    }))
+    .filter(({ score }) => score > 0)
+    .sort((left, right) => right.score - left.score || compareTrackFreshness(left.track, right.track));
+
+  return candidates[0]?.track || null;
+}
+
+function scoreTrackFileMatch(track, fileNameKey, titleKey, fileSize) {
+  const trackFileNameKey = toFileLookupKey(track.fileName || "");
+  const trackTitleKey = normalizeText(track.title || "").replace(/-/g, "");
+  const trackFileSize = Number(track.fileSize) || 0;
+  let score = 0;
+
+  if (trackFileNameKey && trackFileNameKey === fileNameKey) {
+    score += 10;
+  }
+  if (trackTitleKey && trackTitleKey === titleKey) {
+    score += 4;
+  }
+  if (trackFileSize && fileSize && trackFileSize === fileSize) {
+    score += 3;
+  }
+
+  return score;
+}
+
+function compareTrackFreshness(left, right) {
+  return String(right.addedAt || "").localeCompare(String(left.addedAt || ""));
+}
+
 function clearDraft(options = {}) {
   const { keepTransferredAudio = false } = options;
 
@@ -1290,6 +1394,10 @@ function loadImage(source) {
     image.onerror = reject;
     image.src = source;
   });
+}
+
+function toFileLookupKey(fileName) {
+  return normalizeText(stripExtension(fileName || ""));
 }
 
 function stripExtension(fileName) {
