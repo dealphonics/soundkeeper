@@ -659,6 +659,11 @@ body.is-dragging-tracks {
   -webkit-user-select: none;
 }
 
+body.is-dragging-tracks .mini-player,
+body.is-dragging-tracks .mobile-nav {
+  pointer-events: none;
+}
+
 .sheet-track-main {
   width: 100%;
   display: grid;
