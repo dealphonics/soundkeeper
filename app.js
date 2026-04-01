@@ -53,14 +53,31 @@ const state = {
 
 const refs = {};
 let telegramScriptPromise = null;
+let telegramReadySent = false;
 
 document.addEventListener("DOMContentLoaded", () => {
   void init();
 });
 
+window.addEventListener("load", () => {
+  markTelegramReady();
+});
+
+window.addEventListener("pageshow", () => {
+  markTelegramReady();
+});
+
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible") {
+    markTelegramReady();
+  }
+});
+
 async function init() {
+  markTelegramReady();
   cacheRefs();
   bindEvents();
+  applyTelegramChrome();
   renderApp();
   void ensureTelegramBridge();
   void hydrateLibrary();
@@ -99,6 +116,7 @@ function ensureStorageReady() {
 
 function ensureTelegramBridge() {
   if (window.Telegram?.WebApp) {
+    markTelegramReady();
     applyTelegramChrome();
     return Promise.resolve();
   }
@@ -109,6 +127,7 @@ function ensureTelegramBridge() {
       script.src = TELEGRAM_WEBAPP_SCRIPT_URL;
       script.async = true;
       script.onload = () => {
+        markTelegramReady();
         applyTelegramChrome();
         resolve();
       };
@@ -2016,14 +2035,30 @@ function clearDraft(options = {}) {
   renderDraft();
 }
 
+function markTelegramReady() {
+  const webApp = window.Telegram?.WebApp;
+  if (!webApp) {
+    return;
+  }
+
+  try {
+    if (!telegramReadySent) {
+      webApp.ready();
+      telegramReadySent = true;
+    }
+    webApp.expand();
+  } catch (error) {
+    // Ignore bridge timing issues; the next lifecycle event will retry.
+  }
+}
+
 function applyTelegramChrome() {
   const webApp = window.Telegram?.WebApp;
   if (!webApp) {
     return;
   }
 
-  webApp.ready();
-  webApp.expand();
+  markTelegramReady();
 
   const theme = webApp.themeParams || {};
   if (theme.text_color) {
