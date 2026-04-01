@@ -622,6 +622,7 @@ select {
 
 .collection-track-list {
   display: grid;
+  padding-bottom: 112px;
 }
 
 .sheet-track-row {
@@ -943,6 +944,10 @@ input[type="range"] {
 
   .collection-sheet-panel {
     padding: 12px 12px calc(128px + var(--safe-bottom));
+  }
+
+  .collection-track-list {
+    padding-bottom: 132px;
   }
 
   .collection-sheet-cover,
