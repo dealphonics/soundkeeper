@@ -627,8 +627,8 @@ select {
 
 .sheet-track-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 6px;
+  grid-template-columns: minmax(0, 1fr) auto auto auto;
+  gap: 8px;
   align-items: center;
   border-bottom: 1px solid var(--line);
   touch-action: manipulation;
@@ -667,7 +667,7 @@ body.is-dragging-tracks .mobile-nav {
 .sheet-track-main {
   width: 100%;
   display: grid;
-  grid-template-columns: 22px 42px minmax(0, 1fr) 44px;
+  grid-template-columns: 22px 42px minmax(0, 1fr);
   gap: 10px;
   align-items: center;
   padding: 10px 0;
@@ -724,6 +724,19 @@ body.is-dragging-tracks .mobile-nav {
 .sheet-track-duration {
   font-size: 0.86rem;
   text-align: right;
+  min-width: 40px;
+}
+
+.track-drag-handle {
+  min-width: 36px;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  color: var(--muted);
+  background: rgba(255, 255, 255, 0.06);
+  touch-action: none;
 }
 
 .track-more {
@@ -993,7 +1006,7 @@ input[type="range"] {
   }
 
   .sheet-track-main {
-    grid-template-columns: 18px 38px minmax(0, 1fr) 40px;
+    grid-template-columns: 18px 38px minmax(0, 1fr);
     gap: 8px;
   }
 

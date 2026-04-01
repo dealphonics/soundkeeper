@@ -633,8 +633,18 @@ function buildSheetTrackRowMarkup(track, index, view) {
           <span class="sheet-track-subtitle">${escapeHtml(track.artist)}</span>
           <span class="sheet-track-album">${escapeHtml(track.album || "Сингл")}</span>
         </span>
-        <span class="sheet-track-duration">${formatDuration(track.durationSeconds || 0)}</span>
       </div>
+
+      <span class="sheet-track-duration">${formatDuration(track.durationSeconds || 0)}</span>
+
+      <button
+        class="track-drag-handle"
+        type="button"
+        aria-label="Переместить трек"
+        data-track-drag-handle="true"
+      >
+        |||
+      </button>
 
       <button
         class="track-more"
@@ -1510,15 +1520,18 @@ function handleTrackRowPointerDown(event) {
     return;
   }
 
-  if (target.closest(".track-more")) {
+  const dragHandle = target.closest("[data-track-drag-handle]");
+  if (!(dragHandle instanceof HTMLElement)) {
     return;
   }
 
-  const row = target.closest(".sheet-track-row");
+  const row = dragHandle.closest(".sheet-track-row");
   if (!(row instanceof HTMLElement) || !refs.sheetTrackList.contains(row)) {
     return;
   }
 
+  event.preventDefault();
+  event.stopPropagation();
   clearTrackDragTimer();
   const rowRect = row.getBoundingClientRect();
   try {
@@ -1531,31 +1544,11 @@ function handleTrackRowPointerDown(event) {
   state.drag.startX = event.clientX;
   state.drag.startY = event.clientY;
   state.drag.grabOffsetY = event.clientY - rowRect.top;
-  state.drag.active = false;
-  state.drag.timerId = window.setTimeout(() => {
-    beginTrackDrag(row, event.pointerId);
-  }, 320);
+  beginTrackDrag(row, event.pointerId);
 }
 
 function handleTrackRowPointerMove(event) {
   if (state.drag.pointerId !== event.pointerId || !state.drag.rowEl) {
-    return;
-  }
-
-  if (!state.drag.active) {
-    const moved = Math.hypot(event.clientX - state.drag.startX, event.clientY - state.drag.startY);
-    if (moved > 18) {
-      clearTrackDragTimer();
-      try {
-        if (state.drag.rowEl?.hasPointerCapture?.(event.pointerId)) {
-          state.drag.rowEl.releasePointerCapture(event.pointerId);
-        }
-      } catch (error) {
-        // Ignore release failures in embedded webviews.
-      }
-      state.drag.pointerId = null;
-      state.drag.rowEl = null;
-    }
     return;
   }
 
