@@ -40,6 +40,7 @@ const state = {
     timerId: null,
     startX: 0,
     startY: 0,
+    grabOffsetY: 0,
     suppressClickUntil: 0,
   },
   storageApi: null,
@@ -1516,10 +1517,12 @@ function handleTrackRowPointerDown(event) {
   }
 
   clearTrackDragTimer();
+  const rowRect = row.getBoundingClientRect();
   state.drag.pointerId = event.pointerId;
   state.drag.rowEl = row;
   state.drag.startX = event.clientX;
   state.drag.startY = event.clientY;
+  state.drag.grabOffsetY = event.clientY - rowRect.top;
   state.drag.active = false;
   state.drag.timerId = window.setTimeout(() => {
     beginTrackDrag(row, event.pointerId);
@@ -1543,7 +1546,8 @@ function handleTrackRowPointerMove(event) {
 
   event.preventDefault();
   const row = state.drag.rowEl;
-  row.style.transform = `translateY(${event.clientY - state.drag.startY}px)`;
+  const rowRect = row.getBoundingClientRect();
+  row.style.transform = `translateY(${event.clientY - state.drag.grabOffsetY - rowRect.top}px)`;
 
   const panel = refs.sheetTrackList.closest(".collection-sheet-panel");
   if (panel instanceof HTMLElement) {
@@ -1555,14 +1559,12 @@ function handleTrackRowPointerMove(event) {
     }
   }
 
-  const hoverTarget = document.elementFromPoint(event.clientX, event.clientY)?.closest(".sheet-track-row");
-  if (!(hoverTarget instanceof HTMLElement) || hoverTarget === row || !refs.sheetTrackList.contains(hoverTarget)) {
-    return;
+  const nextRow = getReorderTargetRow(event.clientY, row);
+  if (nextRow) {
+    refs.sheetTrackList.insertBefore(row, nextRow);
+  } else {
+    refs.sheetTrackList.append(row);
   }
-
-  const hoverRect = hoverTarget.getBoundingClientRect();
-  const shouldInsertAfter = event.clientY > hoverRect.top + hoverRect.height / 2;
-  refs.sheetTrackList.insertBefore(row, shouldInsertAfter ? hoverTarget.nextSibling : hoverTarget);
   syncSheetTrackIndices();
 }
 
@@ -1589,6 +1591,12 @@ function beginTrackDrag(row, pointerId) {
     return;
   }
 
+  try {
+    row.setPointerCapture(pointerId);
+  } catch (error) {
+    // Some webviews can reject pointer capture; drag still works without it.
+  }
+
   state.drag.active = true;
   state.drag.suppressClickUntil = Date.now() + 700;
   row.classList.add("is-dragging");
@@ -1597,6 +1605,14 @@ function beginTrackDrag(row, pointerId) {
 }
 
 function endTrackDrag(row) {
+  try {
+    if (state.drag.pointerId !== null && row.hasPointerCapture?.(state.drag.pointerId)) {
+      row.releasePointerCapture(state.drag.pointerId);
+    }
+  } catch (error) {
+    // Ignore pointer capture release issues in embedded webviews.
+  }
+
   row.classList.remove("is-dragging");
   row.style.pointerEvents = "";
   row.style.transform = "";
@@ -1605,6 +1621,20 @@ function endTrackDrag(row) {
   state.drag.active = false;
   state.drag.pointerId = null;
   state.drag.rowEl = null;
+}
+
+function getReorderTargetRow(pointerY, draggedRow) {
+  const rows = Array.from(refs.sheetTrackList.querySelectorAll(".sheet-track-row"))
+    .filter((row) => row !== draggedRow);
+
+  for (const row of rows) {
+    const rect = row.getBoundingClientRect();
+    if (pointerY < rect.top + rect.height / 2) {
+      return row;
+    }
+  }
+
+  return null;
 }
 
 function clearTrackDragTimer() {
