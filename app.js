@@ -28,10 +28,20 @@ const state = {
   trackMenu: {
     open: false,
     trackId: null,
-    playlistId: null,
+    collectionType: "all",
+    collectionId: null,
   },
   playbackQueue: [],
   currentQueueIndex: -1,
+  drag: {
+    active: false,
+    pointerId: null,
+    rowEl: null,
+    timerId: null,
+    startX: 0,
+    startY: 0,
+    suppressClickUntil: 0,
+  },
   storageApi: null,
   storageReadyPromise: null,
 };
@@ -152,6 +162,7 @@ function cacheRefs() {
   refs.trackMenuSubtitle = document.getElementById("trackMenuSubtitle");
   refs.trackMenuPlaylistActions = document.getElementById("trackMenuPlaylistActions");
   refs.trackMenuRemoveButton = document.getElementById("trackMenuRemoveButton");
+  refs.trackMenuDeleteButton = document.getElementById("trackMenuDeleteButton");
   refs.miniPlayer = document.getElementById("miniPlayer");
   refs.heroCover = document.getElementById("heroCover");
   refs.heroPlaceholder = document.getElementById("heroPlaceholder");
@@ -235,10 +246,20 @@ function bindEvents() {
   refs.audioElement.addEventListener("ended", () => {
     void playNext(true);
   });
+  refs.sheetTrackList.addEventListener("pointerdown", handleTrackRowPointerDown);
+  document.addEventListener("pointermove", handleTrackRowPointerMove, { passive: false });
+  document.addEventListener("pointerup", handleTrackRowPointerUp);
+  document.addEventListener("pointercancel", handleTrackRowPointerUp);
 
   document.addEventListener("click", (event) => {
     const target = event.target;
     if (!(target instanceof Element)) {
+      return;
+    }
+
+    if (state.drag.suppressClickUntil > Date.now() && target.closest(".sheet-track-row")) {
+      event.preventDefault();
+      event.stopPropagation();
       return;
     }
 
@@ -273,7 +294,8 @@ function bindEvents() {
     if (trackMenuButton) {
       openTrackMenu(
         trackMenuButton.dataset.trackMenuOpen || "",
-        trackMenuButton.dataset.trackMenuPlaylistId || null
+        trackMenuButton.dataset.trackMenuCollectionType || "all",
+        trackMenuButton.dataset.trackMenuCollectionId || null
       );
       return;
     }
@@ -497,7 +519,24 @@ function renderTrackMenu() {
     ? playlistButtons.join("")
     : `<p class="track-menu-note">Нет доступных плейлистов</p>`;
 
-  refs.trackMenuRemoveButton.classList.toggle("is-hidden", !state.trackMenu.playlistId);
+  refs.trackMenuDeleteButton.textContent = "Удалить из медиатеки";
+
+  if (state.trackMenu.collectionType === "playlist" && state.trackMenu.collectionId) {
+    refs.trackMenuRemoveButton.textContent = "Убрать из плейлиста";
+    refs.trackMenuRemoveButton.dataset.trackMenuAction = "remove-from-playlist";
+    refs.trackMenuRemoveButton.classList.remove("is-hidden");
+    return;
+  }
+
+  if (state.trackMenu.collectionType === "album" && state.trackMenu.collectionId) {
+    refs.trackMenuRemoveButton.textContent = "Убрать из альбома";
+    refs.trackMenuRemoveButton.dataset.trackMenuAction = "remove-from-album";
+    refs.trackMenuRemoveButton.classList.remove("is-hidden");
+    return;
+  }
+
+  refs.trackMenuRemoveButton.classList.add("is-hidden");
+  refs.trackMenuRemoveButton.dataset.trackMenuAction = "remove-from-playlist";
 }
 
 function renderMiniPlayer() {
@@ -576,10 +615,14 @@ function buildSheetTrackRowMarkup(track, index, view) {
     `
     : `<span class="sheet-track-placeholder">SK</span>`;
 
-  const playlistId = view.type === "playlist" ? view.playlistId : "";
+  const collectionId = view.type === "playlist"
+    ? view.playlistId
+    : view.type === "album"
+      ? view.albumId
+      : "";
 
   return `
-    <article class="sheet-track-row ${isActive ? "is-active" : ""}">
+    <article class="sheet-track-row ${isActive ? "is-active" : ""}" data-track-id="${track.id}">
       <button class="sheet-track-main" type="button" data-track-main="${track.id}">
         <span class="sheet-track-index">${index + 1}</span>
         ${coverMarkup}
@@ -596,7 +639,8 @@ function buildSheetTrackRowMarkup(track, index, view) {
         type="button"
         aria-label="Действия"
         data-track-menu-open="${track.id}"
-        data-track-menu-playlist-id="${playlistId}"
+        data-track-menu-collection-type="${view.type}"
+        data-track-menu-collection-id="${collectionId}"
       >
         ...
       </button>
@@ -628,12 +672,19 @@ function openCollectionSheet(type, id = null) {
 }
 
 function closeCollectionSheet() {
+  clearTrackDragTimer();
+  if (state.drag.active && state.drag.rowEl) {
+    endTrackDrag(state.drag.rowEl);
+  } else {
+    state.drag.pointerId = null;
+    state.drag.rowEl = null;
+  }
   state.overlay.open = false;
   closeTrackMenu();
   renderCollectionSheet();
 }
 
-function openTrackMenu(trackId, playlistId = null) {
+function openTrackMenu(trackId, collectionType = "all", collectionId = null) {
   if (!trackId) {
     return;
   }
@@ -641,7 +692,8 @@ function openTrackMenu(trackId, playlistId = null) {
   state.trackMenu = {
     open: true,
     trackId,
-    playlistId: playlistId || null,
+    collectionType,
+    collectionId: collectionId || null,
   };
   renderTrackMenu();
 }
@@ -650,7 +702,8 @@ function closeTrackMenu() {
   state.trackMenu = {
     open: false,
     trackId: null,
-    playlistId: null,
+    collectionType: "all",
+    collectionId: null,
   };
   renderTrackMenu();
 }
@@ -679,8 +732,20 @@ async function handleTrackMenuAction(button) {
     return;
   }
 
-  if (action === "remove-from-playlist" && state.trackMenu.playlistId) {
-    await removeTrackFromPlaylist(trackId, state.trackMenu.playlistId);
+  if (action === "remove-from-playlist" && state.trackMenu.collectionId) {
+    await removeTrackFromPlaylist(trackId, state.trackMenu.collectionId);
+    closeTrackMenu();
+    return;
+  }
+
+  if (action === "remove-from-album" && state.trackMenu.collectionId) {
+    await removeTrackFromAlbum(trackId, state.trackMenu.collectionId);
+    closeTrackMenu();
+    return;
+  }
+
+  if (action === "delete-track") {
+    await deleteTrackFromLibrary(trackId);
     closeTrackMenu();
   }
 }
@@ -818,6 +883,8 @@ async function saveTrack() {
     title: refs.titleInput.value.trim() || stripExtension(state.selectedAudio.file.name),
     artist: refs.artistInput.value.trim() || "Не указан",
     album: refs.albumInput.value.trim() || "",
+    sortOrder: getNextLibrarySortOrder(),
+    albumTrackOrder: refs.albumInput.value.trim() ? getNextAlbumTrackOrder(refs.albumInput.value.trim()) : null,
     durationSeconds: state.selectedAudio.durationSeconds || 0,
     fileName: state.selectedAudio.file.name,
     fileSize: state.selectedAudio.file.size || 0,
@@ -1085,8 +1152,16 @@ function ensureValidTrackMenu() {
     return;
   }
 
-  if (state.trackMenu.playlistId && !state.playlists.some((playlist) => playlist.id === state.trackMenu.playlistId)) {
-    state.trackMenu.playlistId = null;
+  if (state.trackMenu.collectionType === "playlist"
+    && state.trackMenu.collectionId
+    && !state.playlists.some((playlist) => playlist.id === state.trackMenu.collectionId)) {
+    state.trackMenu.collectionId = null;
+  }
+
+  if (state.trackMenu.collectionType === "album"
+    && state.trackMenu.collectionId
+    && !getAlbums().some((album) => album.id === state.trackMenu.collectionId)) {
+    state.trackMenu.collectionId = null;
   }
 }
 
@@ -1106,6 +1181,7 @@ function getOverlayViewData() {
       typeLabel: "Альбом",
       title: album.title,
       meta: [album.artistLabel, formatTrackCount(album.trackIds.length)].filter(Boolean).join(" · "),
+      albumId: album.id,
       trackIds: album.trackIds,
       coverDataUrl: album.coverDataUrl,
       showCover: true,
@@ -1125,6 +1201,7 @@ function getOverlayViewData() {
       typeLabel: "Плейлист",
       title: playlist.name,
       meta: formatTrackCount(tracks.length),
+      albumId: null,
       trackIds: playlist.trackIds,
       coverDataUrl: playlist.coverDataUrl || getCollectionCoverDataUrl(tracks),
       showCover: true,
@@ -1138,6 +1215,7 @@ function getOverlayViewData() {
     typeLabel: "Медиатека",
     title: "Все треки",
     meta: formatTrackCount(allTracks.length),
+    albumId: null,
     trackIds: allTracks.map((track) => track.id),
     coverDataUrl: "",
     showCover: false,
@@ -1163,7 +1241,7 @@ function getAlbums() {
   const groups = new Map();
 
   for (const track of state.library) {
-    const albumTitle = track.album.trim();
+    const albumTitle = String(track.album || "").trim();
     if (!albumTitle) {
       continue;
     }
@@ -1173,14 +1251,14 @@ function getAlbums() {
       groups.set(albumId, {
         id: albumId,
         title: albumTitle,
-        trackIds: [],
+        tracks: [],
         coverDataUrl: track.coverDataUrl || "",
         artistNames: new Set(),
       });
     }
 
     const album = groups.get(albumId);
-    album.trackIds.push(track.id);
+    album.tracks.push(track);
     if (!album.coverDataUrl && track.coverDataUrl) {
       album.coverDataUrl = track.coverDataUrl;
     }
@@ -1193,10 +1271,13 @@ function getAlbums() {
     .map((album) => ({
       id: album.id,
       title: album.title,
-      trackIds: album.trackIds,
+      trackIds: album.tracks
+        .slice()
+        .sort(compareTracksByAlbumOrder)
+        .map((track) => track.id),
       coverDataUrl: album.coverDataUrl,
       artistLabel: Array.from(album.artistNames).join(", "),
-      meta: [Array.from(album.artistNames).join(", "), formatTrackCount(album.trackIds.length)]
+      meta: [Array.from(album.artistNames).join(", "), formatTrackCount(album.tracks.length)]
         .filter(Boolean)
         .join(" · "),
     }))
@@ -1217,6 +1298,329 @@ function getCurrentTrack() {
 
 function getTrackById(trackId) {
   return state.library.find((track) => track.id === trackId) || null;
+}
+
+function compareTracksByLibraryOrder(left, right) {
+  const leftOrder = Number.isFinite(left?.sortOrder) ? Number(left.sortOrder) : null;
+  const rightOrder = Number.isFinite(right?.sortOrder) ? Number(right.sortOrder) : null;
+
+  if (leftOrder !== null && rightOrder !== null && leftOrder !== rightOrder) {
+    return leftOrder - rightOrder;
+  }
+  if (leftOrder !== null && rightOrder === null) {
+    return -1;
+  }
+  if (leftOrder === null && rightOrder !== null) {
+    return 1;
+  }
+
+  return String(right?.addedAt || "").localeCompare(String(left?.addedAt || "")) || String(left?.title || "").localeCompare(String(right?.title || ""), "ru");
+}
+
+function compareTracksByAlbumOrder(left, right) {
+  const leftOrder = Number.isFinite(left?.albumTrackOrder) ? Number(left.albumTrackOrder) : null;
+  const rightOrder = Number.isFinite(right?.albumTrackOrder) ? Number(right.albumTrackOrder) : null;
+
+  if (leftOrder !== null && rightOrder !== null && leftOrder !== rightOrder) {
+    return leftOrder - rightOrder;
+  }
+  if (leftOrder !== null && rightOrder === null) {
+    return -1;
+  }
+  if (leftOrder === null && rightOrder !== null) {
+    return 1;
+  }
+
+  return compareTracksByLibraryOrder(left, right);
+}
+
+function getNextLibrarySortOrder() {
+  return state.library.reduce((maxValue, track) => Math.max(maxValue, Number(track.sortOrder) || 0), 0) + 1;
+}
+
+function getNextAlbumTrackOrder(albumTitle) {
+  const normalizedAlbum = normalizeText(albumTitle);
+  return state.library
+    .filter((track) => normalizeText(track.album || "") === normalizedAlbum)
+    .reduce((maxValue, track) => Math.max(maxValue, Number(track.albumTrackOrder) || 0), 0) + 1;
+}
+
+async function deleteTrackFromLibrary(trackId) {
+  await ensureStorageReady();
+  const track = getTrackById(trackId);
+  if (!track) {
+    return;
+  }
+
+  const session = state.sessionAudio.get(trackId);
+  if (session?.objectUrl) {
+    URL.revokeObjectURL(session.objectUrl);
+  }
+  state.sessionAudio.delete(trackId);
+
+  for (const playlist of state.playlists) {
+    if (!playlist.trackIds.includes(trackId)) {
+      continue;
+    }
+
+    playlist.trackIds = playlist.trackIds.filter((id) => id !== trackId);
+    playlist.updatedAt = new Date().toISOString();
+    await state.storageApi.savePlaylist(playlist);
+  }
+
+  await state.storageApi.removeTrack(trackId);
+  await state.storageApi.removePlayEventsByTrackId(trackId);
+
+  state.library = await state.storageApi.listTracks();
+  state.playlists = await state.storageApi.listPlaylists();
+  state.playHistory = await state.storageApi.listPlayHistory();
+  syncPlaybackAfterTrackRemoval(trackId);
+  renderApp();
+}
+
+async function removeTrackFromAlbum(trackId, albumId) {
+  await ensureStorageReady();
+  const track = getTrackById(trackId);
+  const album = getAlbums().find((item) => item.id === albumId);
+  if (!track || !album) {
+    return;
+  }
+
+  track.album = "";
+  track.albumTrackOrder = null;
+  await state.storageApi.saveTrack(track);
+  state.library = await state.storageApi.listTracks();
+  renderApp();
+}
+
+function syncPlaybackAfterTrackRemoval(trackId) {
+  state.playbackQueue = state.playbackQueue.filter((id) => id !== trackId);
+
+  if (state.currentTrackId === trackId) {
+    refs.audioElement.pause();
+    refs.audioElement.removeAttribute("src");
+    refs.audioElement.dataset.trackId = "";
+
+    if (!state.playbackQueue.length) {
+      state.currentTrackId = null;
+      state.currentQueueIndex = -1;
+      return;
+    }
+
+    state.currentQueueIndex = Math.min(Math.max(state.currentQueueIndex, 0), state.playbackQueue.length - 1);
+    state.currentTrackId = state.playbackQueue[state.currentQueueIndex] || null;
+    void playCurrentTrack();
+    return;
+  }
+
+  state.currentQueueIndex = state.currentTrackId ? state.playbackQueue.indexOf(state.currentTrackId) : -1;
+}
+
+async function persistTrackOrderFromDom() {
+  const view = getOverlayViewData();
+  if (!view) {
+    return;
+  }
+
+  const orderedIds = Array.from(refs.sheetTrackList.querySelectorAll(".sheet-track-row"))
+    .map((row) => row.dataset.trackId || "")
+    .filter(Boolean);
+
+  if (!orderedIds.length) {
+    return;
+  }
+
+  if (view.type === "playlist" && view.playlistId) {
+    await reorderPlaylistTracks(view.playlistId, orderedIds);
+    return;
+  }
+
+  if (view.type === "album" && view.albumId) {
+    await reorderAlbumTracks(view.albumId, orderedIds);
+    return;
+  }
+
+  await reorderLibraryTracks(orderedIds);
+}
+
+async function reorderPlaylistTracks(playlistId, orderedIds) {
+  await ensureStorageReady();
+  const playlist = state.playlists.find((item) => item.id === playlistId);
+  if (!playlist) {
+    return;
+  }
+
+  playlist.trackIds = orderedIds.filter((trackId) => playlist.trackIds.includes(trackId));
+  playlist.updatedAt = new Date().toISOString();
+  await state.storageApi.savePlaylist(playlist);
+  state.playlists = await state.storageApi.listPlaylists();
+  renderApp();
+}
+
+async function reorderAlbumTracks(albumId, orderedIds) {
+  await ensureStorageReady();
+  const album = getAlbums().find((item) => item.id === albumId);
+  if (!album) {
+    return;
+  }
+
+  const updates = orderedIds
+    .map((trackId, index) => {
+      const track = getTrackById(trackId);
+      if (!track || normalizeText(track.album || "") !== normalizeText(album.title)) {
+        return null;
+      }
+
+      track.albumTrackOrder = index + 1;
+      return state.storageApi.saveTrack(track);
+    })
+    .filter(Boolean);
+
+  await Promise.all(updates);
+  state.library = await state.storageApi.listTracks();
+  renderApp();
+}
+
+async function reorderLibraryTracks(orderedIds) {
+  await ensureStorageReady();
+  const updates = orderedIds
+    .map((trackId, index) => {
+      const track = getTrackById(trackId);
+      if (!track) {
+        return null;
+      }
+
+      track.sortOrder = index + 1;
+      return state.storageApi.saveTrack(track);
+    })
+    .filter(Boolean);
+
+  await Promise.all(updates);
+  state.library = await state.storageApi.listTracks();
+  renderApp();
+}
+
+function handleTrackRowPointerDown(event) {
+  const target = event.target;
+  if (!(target instanceof Element)) {
+    return;
+  }
+
+  if (target.closest(".track-more")) {
+    return;
+  }
+
+  const row = target.closest(".sheet-track-row");
+  if (!(row instanceof HTMLElement) || !refs.sheetTrackList.contains(row)) {
+    return;
+  }
+
+  clearTrackDragTimer();
+  state.drag.pointerId = event.pointerId;
+  state.drag.rowEl = row;
+  state.drag.startX = event.clientX;
+  state.drag.startY = event.clientY;
+  state.drag.active = false;
+  state.drag.timerId = window.setTimeout(() => {
+    beginTrackDrag(row, event.pointerId);
+  }, 320);
+}
+
+function handleTrackRowPointerMove(event) {
+  if (state.drag.pointerId !== event.pointerId || !state.drag.rowEl) {
+    return;
+  }
+
+  if (!state.drag.active) {
+    const moved = Math.hypot(event.clientX - state.drag.startX, event.clientY - state.drag.startY);
+    if (moved > 8) {
+      clearTrackDragTimer();
+      state.drag.pointerId = null;
+      state.drag.rowEl = null;
+    }
+    return;
+  }
+
+  event.preventDefault();
+  const row = state.drag.rowEl;
+  row.style.transform = `translateY(${event.clientY - state.drag.startY}px)`;
+
+  const panel = refs.sheetTrackList.closest(".collection-sheet-panel");
+  if (panel instanceof HTMLElement) {
+    const panelRect = panel.getBoundingClientRect();
+    if (event.clientY > panelRect.bottom - 64) {
+      panel.scrollTop += 12;
+    } else if (event.clientY < panelRect.top + 64) {
+      panel.scrollTop -= 12;
+    }
+  }
+
+  const hoverTarget = document.elementFromPoint(event.clientX, event.clientY)?.closest(".sheet-track-row");
+  if (!(hoverTarget instanceof HTMLElement) || hoverTarget === row || !refs.sheetTrackList.contains(hoverTarget)) {
+    return;
+  }
+
+  const hoverRect = hoverTarget.getBoundingClientRect();
+  const shouldInsertAfter = event.clientY > hoverRect.top + hoverRect.height / 2;
+  refs.sheetTrackList.insertBefore(row, shouldInsertAfter ? hoverTarget.nextSibling : hoverTarget);
+  syncSheetTrackIndices();
+}
+
+function handleTrackRowPointerUp(event) {
+  if (state.drag.pointerId !== event.pointerId) {
+    return;
+  }
+
+  const wasActive = state.drag.active;
+  const row = state.drag.rowEl;
+  clearTrackDragTimer();
+
+  if (wasActive && row) {
+    endTrackDrag(row);
+    void persistTrackOrderFromDom();
+  } else {
+    state.drag.pointerId = null;
+    state.drag.rowEl = null;
+  }
+}
+
+function beginTrackDrag(row, pointerId) {
+  if (state.drag.pointerId !== pointerId || !row.isConnected) {
+    return;
+  }
+
+  state.drag.active = true;
+  state.drag.suppressClickUntil = Date.now() + 700;
+  row.classList.add("is-dragging");
+  row.style.pointerEvents = "none";
+  document.body.classList.add("is-dragging-tracks");
+}
+
+function endTrackDrag(row) {
+  row.classList.remove("is-dragging");
+  row.style.pointerEvents = "";
+  row.style.transform = "";
+  document.body.classList.remove("is-dragging-tracks");
+  syncSheetTrackIndices();
+  state.drag.active = false;
+  state.drag.pointerId = null;
+  state.drag.rowEl = null;
+}
+
+function clearTrackDragTimer() {
+  if (state.drag.timerId) {
+    window.clearTimeout(state.drag.timerId);
+    state.drag.timerId = null;
+  }
+}
+
+function syncSheetTrackIndices() {
+  Array.from(refs.sheetTrackList.querySelectorAll(".sheet-track-row")).forEach((row, index) => {
+    const label = row.querySelector(".sheet-track-index");
+    if (label) {
+      label.textContent = String(index + 1);
+    }
+  });
 }
 
 async function registerTrackPlay(track) {
@@ -1429,7 +1833,7 @@ function createIndexedDbApi(db) {
   return {
     async listTracks() {
       const tracks = await runStoreRequest(db, TRACK_STORE, "readonly", (store) => store.getAll());
-      return tracks.sort((left, right) => right.addedAt.localeCompare(left.addedAt));
+      return tracks.sort(compareTracksByLibraryOrder);
     },
     saveTrack(track) {
       return runStoreRequest(db, TRACK_STORE, "readwrite", (store) => store.put(track));
@@ -1454,6 +1858,13 @@ function createIndexedDbApi(db) {
     savePlayEvent(event) {
       return runStoreRequest(db, PLAY_HISTORY_STORE, "readwrite", (store) => store.put(event));
     },
+    async removePlayEventsByTrackId(trackId) {
+      const history = await runStoreRequest(db, PLAY_HISTORY_STORE, "readonly", (store) => store.getAll());
+      const removals = history
+        .filter((event) => event.trackId === trackId)
+        .map((event) => runStoreRequest(db, PLAY_HISTORY_STORE, "readwrite", (store) => store.delete(event.id)));
+      await Promise.all(removals);
+    },
   };
 }
 
@@ -1473,7 +1884,7 @@ function createLocalStorageApi() {
     async listTracks() {
       const payload = window.localStorage.getItem(TRACK_STORAGE_KEY);
       const tracks = payload ? JSON.parse(payload) : [];
-      return tracks.sort((left, right) => right.addedAt.localeCompare(left.addedAt));
+      return tracks.sort(compareTracksByLibraryOrder);
     },
     async saveTrack(track) {
       const tracks = await this.listTracks();
@@ -1515,6 +1926,13 @@ function createLocalStorageApi() {
       const history = await this.listPlayHistory();
       history.push(event);
       window.localStorage.setItem(PLAY_HISTORY_STORAGE_KEY, JSON.stringify(history));
+    },
+    async removePlayEventsByTrackId(trackId) {
+      const history = await this.listPlayHistory();
+      window.localStorage.setItem(
+        PLAY_HISTORY_STORAGE_KEY,
+        JSON.stringify(history.filter((event) => event.trackId !== trackId))
+      );
     },
   };
 }

@@ -631,10 +631,25 @@ select {
   gap: 6px;
   align-items: center;
   border-bottom: 1px solid var(--line);
+  touch-action: manipulation;
 }
 
 .sheet-track-row.is-active {
   background: rgba(46, 166, 255, 0.08);
+}
+
+.sheet-track-row.is-dragging {
+  position: relative;
+  z-index: 3;
+  opacity: 0.96;
+  border-radius: 16px;
+  background: rgba(46, 166, 255, 0.14);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.3);
+}
+
+body.is-dragging-tracks {
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 .sheet-track-main {
