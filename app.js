@@ -286,6 +286,12 @@ function updateDockMetrics() {
   document.documentElement.style.setProperty("--app-dock-height", `${dockHeight}px`);
 }
 
+function syncOverlayScrollLock() {
+  const hasOverlay = state.activeScreen === "library" && state.overlay.open;
+  const hasTrackMenu = state.trackMenu.open;
+  document.body.classList.toggle("has-open-overlay", hasOverlay || hasTrackMenu);
+}
+
 async function dismissSplash(sequence = splashSequence) {
   if (sequence !== splashSequence) {
     return;
@@ -633,6 +639,7 @@ function renderCollectionSheet() {
   if (!view || state.activeScreen !== "library") {
     refs.collectionSheet.classList.add("is-hidden");
     refs.collectionSheet.setAttribute("aria-hidden", "true");
+    syncOverlayScrollLock();
     scheduleDockMetricsUpdate();
     return;
   }
@@ -664,6 +671,7 @@ function renderCollectionSheet() {
   if (panel instanceof HTMLElement) {
     panel.style.touchAction = "";
   }
+  syncOverlayScrollLock();
   scheduleDockMetricsUpdate();
 }
 
@@ -672,11 +680,13 @@ function renderTrackMenu() {
   if (!track) {
     refs.trackMenu.classList.add("is-hidden");
     refs.trackMenu.setAttribute("aria-hidden", "true");
+    syncOverlayScrollLock();
     return;
   }
 
   refs.trackMenu.classList.remove("is-hidden");
   refs.trackMenu.setAttribute("aria-hidden", "false");
+  syncOverlayScrollLock();
   refs.trackMenuTitle.textContent = track.title;
   refs.trackMenuSubtitle.textContent = [track.artist, track.album || "Сингл"]
     .filter(Boolean)
