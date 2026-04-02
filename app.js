@@ -9,6 +9,8 @@ const PLAYLIST_STORE = "playlists";
 const ARTIST_PROFILE_STORE = "artist-profiles";
 const PLAY_HISTORY_STORE = "play-history";
 const TELEGRAM_WEBAPP_SCRIPT_URL = "https://telegram.org/js/telegram-web-app.js?61";
+const SPLASH_MIN_DURATION_MS = 760;
+const SPLASH_MAX_DURATION_MS = 2200;
 
 const state = {
   library: [],
@@ -54,6 +56,8 @@ const state = {
 const refs = {};
 let telegramScriptPromise = null;
 let telegramReadySent = false;
+let splashDismissPromise = null;
+const splashStartedAt = typeof performance !== "undefined" ? performance.now() : Date.now();
 
 document.addEventListener("DOMContentLoaded", () => {
   void init();
@@ -79,8 +83,17 @@ async function init() {
   bindEvents();
   applyTelegramChrome();
   renderApp();
-  void ensureTelegramBridge();
-  void hydrateLibrary();
+  const bootTasks = [
+    ensureTelegramBridge(),
+    hydrateLibrary(),
+  ];
+
+  void Promise.race([
+    Promise.allSettled(bootTasks),
+    delay(SPLASH_MAX_DURATION_MS),
+  ]).finally(() => {
+    void dismissSplash();
+  });
 }
 
 async function hydrateLibrary() {
@@ -140,6 +153,7 @@ function ensureTelegramBridge() {
 }
 
 function cacheRefs() {
+  refs.appSplash = document.getElementById("appSplash");
   refs.audioInput = document.getElementById("audioInput");
   refs.coverInput = document.getElementById("coverInput");
   refs.playlistCoverInput = document.getElementById("playlistCoverInput");
@@ -203,6 +217,42 @@ function cacheRefs() {
   refs.currentTimeLabel = document.getElementById("currentTimeLabel");
   refs.durationLabel = document.getElementById("durationLabel");
   refs.audioElement = document.getElementById("audioElement");
+}
+
+function delay(ms) {
+  return new Promise((resolve) => {
+    window.setTimeout(resolve, Math.max(0, ms || 0));
+  });
+}
+
+async function dismissSplash() {
+  if (splashDismissPromise) {
+    return splashDismissPromise;
+  }
+
+  splashDismissPromise = (async () => {
+    if (!refs.appSplash) {
+      document.body.classList.remove("is-splash-visible");
+      return;
+    }
+
+    const now = typeof performance !== "undefined" ? performance.now() : Date.now();
+    const elapsed = now - splashStartedAt;
+    if (elapsed < SPLASH_MIN_DURATION_MS) {
+      await delay(SPLASH_MIN_DURATION_MS - elapsed);
+    }
+
+    refs.appSplash.classList.add("is-hidden");
+    document.body.classList.remove("is-splash-visible");
+    await delay(380);
+
+    if (refs.appSplash?.isConnected) {
+      refs.appSplash.remove();
+    }
+    refs.appSplash = null;
+  })();
+
+  return splashDismissPromise;
 }
 
 function bindEvents() {

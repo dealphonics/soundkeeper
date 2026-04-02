@@ -9,11 +9,23 @@
     content="Telegram Mini App для локального прослушивания аудио, хранения треков, альбомов и плейлистов."
   >
   <link rel="preconnect" href="https://telegram.org">
+  <link rel="preload" href="soundkeeper1.png" as="image">
   <link rel="stylesheet" href="styles.css">
   <script src="https://telegram.org/js/telegram-web-app.js?61" defer></script>
   <script src="app.js" defer></script>
 </head>
-<body>
+<body class="is-splash-visible">
+  <div class="app-splash" id="appSplash" aria-hidden="true">
+    <div class="app-splash-backdrop" aria-hidden="true"></div>
+    <div class="app-splash-core">
+      <div class="app-splash-halo" aria-hidden="true"></div>
+      <div class="app-splash-logo-shell">
+        <img class="app-splash-logo" src="soundkeeper1.png" alt="">
+        <span class="app-splash-scan" aria-hidden="true"></span>
+      </div>
+    </div>
+  </div>
+
   <div class="app-shell">
     <aside class="shell-nav">
       <h1>Soundkeeper</h1>

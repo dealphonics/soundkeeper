@@ -18,6 +18,18 @@ DEFAULT_COMMANDS = [
   {"command": "menu", "description": "Настроить кнопку меню в этом чате"},
 ]
 
+BOT_DESCRIPTION = "\n".join(
+  [
+    "Soundkeeper — удобный локальный плеер внутри Telegram для вашей личной музыкальной коллекции.",
+    "Загружайте свои треки и обложки, собирайте плейлисты и отслеживайте статистику прослушиваний.",
+    "Приложение предназначено только для локального воспроизведения файлов, которые пользователь самостоятельно выбирает на своем устройстве.",
+    "Soundkeeper не предоставляет общую библиотеку контента и не распространяет загружаемые файлы.",
+    "Пользователь самостоятельно отвечает за права на используемые аудиофайлы и изображения.",
+  ]
+)
+
+BOT_SHORT_DESCRIPTION = "Удобный локальный плеер внутри Telegram."
+
 
 @dataclass
 class Settings:
@@ -130,6 +142,18 @@ class TelegramBotApi:
   def set_my_commands(self) -> None:
     self.call("setMyCommands", {"commands": DEFAULT_COMMANDS})
 
+  def set_my_description(self, description: str, language_code: str = "") -> None:
+    payload: dict[str, Any] = {"description": description}
+    if language_code:
+      payload["language_code"] = language_code
+    self.call("setMyDescription", payload)
+
+  def set_my_short_description(self, short_description: str, language_code: str = "") -> None:
+    payload: dict[str, Any] = {"short_description": short_description}
+    if language_code:
+      payload["language_code"] = language_code
+    self.call("setMyShortDescription", payload)
+
   def set_chat_menu_button(self, text: str, mini_app_url: str, chat_id: int | None = None) -> None:
     payload: dict[str, Any] = {
       "menu_button": {
@@ -158,15 +182,14 @@ def build_launch_keyboard(settings: Settings) -> dict[str, Any]:
 
 def build_welcome_text(start_parameter: str | None = None) -> str:
   lines = [
-    "Soundkeeper - это приватный локальный аудиоплеер в формате Telegram Mini App.",
-    "Вы загружаете свой аудиофайл и обложку, а библиотека карточек хранится локально на устройстве.",
+    "Soundkeeper — удобный локальный плеер внутри Telegram для вашей личной музыкальной коллекции.",
+    "Загружайте свои треки и обложки, собирайте плейлисты и отслеживайте статистику прослушиваний.",
     "",
-    "Как это работает:",
-    "1. Нажмите кнопку ниже, чтобы открыть Mini App.",
-    "2. Выберите аудиофайл на устройстве.",
-    "3. Сохраните карточку трека в локальную библиотеку внутри приложения.",
+    "Приложение предназначено только для локального воспроизведения файлов, которые пользователь самостоятельно выбирает на своем устройстве.",
+    "Soundkeeper не предоставляет общую библиотеку контента и не распространяет загружаемые файлы.",
+    "Пользователь самостоятельно отвечает за права на используемые аудиофайлы и изображения.",
     "",
-    "Карточка трека останется в библиотеке, но сам аудиофайл в новой сессии нужно будет подключить заново.",
+    "Нажмите кнопку ниже, чтобы открыть плеер.",
   ]
 
   if start_parameter:
@@ -179,11 +202,12 @@ def build_help_text(settings: Settings) -> str:
   return "\n".join(
     [
       "Команды Soundkeeper:",
-      "/start - показать приветствие и кнопку запуска",
+      "/start - открыть описание и кнопку запуска",
       "/app - еще раз прислать кнопку Mini App",
-      "/menu - настроить кнопку меню для этого личного чата",
+      "/menu - обновить кнопку меню в личном чате",
       "/help - показать эту справку",
       "",
+      "Разделы приложения: Home, Library, Statistics.",
       f"Текущий Mini App URL: {settings.mini_app_url}",
     ]
   )
@@ -250,6 +274,10 @@ def handle_message(api: TelegramBotApi, settings: Settings, message: dict[str, A
 
 def run_setup(api: TelegramBotApi, settings: Settings) -> None:
   api.set_my_commands()
+  api.set_my_description(BOT_DESCRIPTION)
+  api.set_my_description(BOT_DESCRIPTION, language_code="ru")
+  api.set_my_short_description(BOT_SHORT_DESCRIPTION)
+  api.set_my_short_description(BOT_SHORT_DESCRIPTION, language_code="ru")
   api.set_chat_menu_button(settings.menu_button_text, settings.mini_app_url)
 
 

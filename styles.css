@@ -39,6 +39,135 @@ body {
     linear-gradient(180deg, #090d12 0%, #0a0f16 100%);
 }
 
+body.is-splash-visible {
+  overflow: hidden;
+}
+
+.app-splash {
+  position: fixed;
+  inset: 0;
+  z-index: 140;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  opacity: 1;
+  visibility: visible;
+  transition: opacity 360ms ease, visibility 360ms ease;
+}
+
+.app-splash.is-hidden {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.app-splash-backdrop,
+.app-splash-halo,
+.app-splash-scan {
+  position: absolute;
+}
+
+.app-splash-backdrop {
+  inset: 0;
+  background:
+    radial-gradient(circle at 50% 42%, rgba(53, 173, 255, 0.18), transparent 22%),
+    radial-gradient(circle at 50% 55%, rgba(53, 173, 255, 0.08), transparent 38%),
+    linear-gradient(180deg, #06111a 0%, #08121b 46%, #050b11 100%);
+}
+
+.app-splash-core {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: min(72vw, 360px);
+  aspect-ratio: 1;
+}
+
+.app-splash-halo {
+  inset: 12%;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle, rgba(77, 199, 255, 0.3) 0%, rgba(46, 166, 255, 0.1) 36%, transparent 70%);
+  filter: blur(18px);
+  animation: splashHaloPulse 2.2s ease-in-out infinite;
+}
+
+.app-splash-logo-shell {
+  position: relative;
+  width: min(58vw, 296px);
+  aspect-ratio: 1;
+  display: grid;
+  place-items: center;
+  animation: splashLogoFloat 2.4s ease-in-out infinite;
+}
+
+.app-splash-logo {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  filter:
+    drop-shadow(0 18px 32px rgba(0, 0, 0, 0.5))
+    drop-shadow(0 0 22px rgba(61, 193, 255, 0.16));
+}
+
+.app-splash-scan {
+  left: 50%;
+  top: 50%;
+  z-index: 1;
+  width: 38%;
+  height: 8%;
+  border-radius: 999px;
+  background:
+    radial-gradient(circle at center, rgba(155, 234, 255, 0.95) 0%, rgba(88, 206, 255, 0.84) 38%, rgba(88, 206, 255, 0) 100%);
+  transform: translate(-50%, -50%);
+  filter: blur(2px);
+  animation: splashScanPulse 1.6s ease-in-out infinite;
+}
+
+@keyframes splashLogoFloat {
+  0%,
+  100% {
+    transform: translateY(0) scale(1);
+  }
+  50% {
+    transform: translateY(-5px) scale(1.015);
+  }
+}
+
+@keyframes splashHaloPulse {
+  0%,
+  100% {
+    opacity: 0.72;
+    transform: scale(0.96);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.04);
+  }
+}
+
+@keyframes splashScanPulse {
+  0%,
+  100% {
+    opacity: 0.5;
+    transform: translate(-50%, -50%) scaleX(0.92);
+  }
+  50% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scaleX(1.08);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-splash-halo,
+  .app-splash-logo-shell,
+  .app-splash-scan {
+    animation: none;
+  }
+}
+
 button,
 input,
 select {
