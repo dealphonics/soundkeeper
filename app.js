@@ -9,8 +9,8 @@ const PLAYLIST_STORE = "playlists";
 const ARTIST_PROFILE_STORE = "artist-profiles";
 const PLAY_HISTORY_STORE = "play-history";
 const TELEGRAM_WEBAPP_SCRIPT_URL = "https://telegram.org/js/telegram-web-app.js?61";
-const SPLASH_MIN_DURATION_MS = 760;
-const SPLASH_MAX_DURATION_MS = 2200;
+const SPLASH_MIN_DURATION_MS = 1350;
+const SPLASH_MAX_DURATION_MS = 2800;
 
 const state = {
   library: [],
@@ -242,7 +242,7 @@ async function dismissSplash() {
       await delay(SPLASH_MIN_DURATION_MS - elapsed);
     }
 
-    refs.appSplash.classList.add("is-hidden");
+    refs.appSplash.classList.add("is-dismissing");
     document.body.classList.remove("is-splash-visible");
     await delay(380);
 

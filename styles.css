@@ -55,7 +55,7 @@ body.is-splash-visible {
   transition: opacity 360ms ease, visibility 360ms ease;
 }
 
-.app-splash.is-hidden {
+.app-splash.is-dismissing {
   opacity: 0;
   visibility: hidden;
   pointer-events: none;
