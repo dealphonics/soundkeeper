@@ -2293,3 +2293,41 @@ body.has-active-player .collection-sheet-panel {
     --dock-gap-reserve: 10px;
   }
 }
+
+/* Restore native scrolling inside collection overlays */
+.collection-sheet-panel {
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+}
+
+/* Drive collection overlay clearance from the real fixed dock height */
+:root {
+  --app-dock-height: 94px;
+}
+
+.collection-sheet {
+  padding: 8px 8px calc(var(--app-dock-height) + 8px);
+}
+
+.collection-sheet-panel {
+  max-height: calc(100dvh - var(--app-dock-height) - 16px);
+  padding-bottom: 16px;
+  scroll-padding-bottom: 16px;
+}
+
+.collection-track-list {
+  padding-bottom: 8px;
+}
+
+@media (min-width: 1181px) {
+  .collection-sheet {
+    padding: 16px 16px calc(var(--app-dock-height) + 16px);
+  }
+
+  .collection-sheet-panel {
+    max-height: calc(100vh - var(--app-dock-height) - 32px);
+  }
+}

@@ -64,6 +64,7 @@ let splashMinDurationMs = SPLASH_MIN_DURATION_MS;
 let splashSequence = 0;
 let lastHiddenAt = 0;
 let hasCompletedInitialBoot = false;
+let dockMetricsFrame = 0;
 
 document.addEventListener("DOMContentLoaded", () => {
   void init();
@@ -90,6 +91,10 @@ document.addEventListener("visibilitychange", () => {
       void triggerResumeSplash();
     }
   }
+});
+
+window.addEventListener("resize", () => {
+  scheduleDockMetricsUpdate();
 });
 
 async function init() {
@@ -222,6 +227,7 @@ function cacheRefs() {
   refs.trackMenuPlaylistActions = document.getElementById("trackMenuPlaylistActions");
   refs.trackMenuRemoveButton = document.getElementById("trackMenuRemoveButton");
   refs.trackMenuDeleteButton = document.getElementById("trackMenuDeleteButton");
+  refs.appDock = document.querySelector(".app-dock");
   refs.miniPlayer = document.getElementById("miniPlayer");
   refs.heroCover = document.getElementById("heroCover");
   refs.heroPlaceholder = document.getElementById("heroPlaceholder");
@@ -259,6 +265,25 @@ function showSplash(minDuration = SPLASH_MIN_DURATION_MS) {
   }
 
   return splashSequence;
+}
+
+function scheduleDockMetricsUpdate() {
+  if (dockMetricsFrame) {
+    window.cancelAnimationFrame(dockMetricsFrame);
+  }
+
+  dockMetricsFrame = window.requestAnimationFrame(() => {
+    dockMetricsFrame = 0;
+    updateDockMetrics();
+  });
+}
+
+function updateDockMetrics() {
+  const dockHeight = refs.appDock instanceof HTMLElement
+    ? Math.ceil(refs.appDock.getBoundingClientRect().height)
+    : 0;
+
+  document.documentElement.style.setProperty("--app-dock-height", `${dockHeight}px`);
 }
 
 async function dismissSplash(sequence = splashSequence) {
@@ -482,6 +507,7 @@ function renderApp() {
   renderCollectionSheet();
   renderTrackMenu();
   renderMiniPlayer();
+  scheduleDockMetricsUpdate();
 }
 
 function renderNavigation() {
@@ -607,6 +633,7 @@ function renderCollectionSheet() {
   if (!view || state.activeScreen !== "library") {
     refs.collectionSheet.classList.add("is-hidden");
     refs.collectionSheet.setAttribute("aria-hidden", "true");
+    scheduleDockMetricsUpdate();
     return;
   }
 
@@ -632,6 +659,12 @@ function renderCollectionSheet() {
   }
 
   refs.sheetTrackList.innerHTML = buildSheetTrackListMarkup(tracks, view);
+  refs.sheetTrackList.style.touchAction = "";
+  const panel = refs.sheetTrackList.closest(".collection-sheet-panel");
+  if (panel instanceof HTMLElement) {
+    panel.style.touchAction = "";
+  }
+  scheduleDockMetricsUpdate();
 }
 
 function renderTrackMenu() {
@@ -697,6 +730,7 @@ function renderMiniPlayer() {
     refs.progressInput.value = "0";
     refs.currentTimeLabel.textContent = "0:00";
     refs.durationLabel.textContent = "0:00";
+    scheduleDockMetricsUpdate();
     return;
   }
 
@@ -718,6 +752,7 @@ function renderMiniPlayer() {
   const isPlaying = refs.audioElement.dataset.trackId === track.id && !refs.audioElement.paused;
   refs.playPauseButton.disabled = false;
   refs.playPauseButton.textContent = isPlaying ? "||" : ">";
+  scheduleDockMetricsUpdate();
   refs.prevTrackButton.disabled = state.currentQueueIndex <= 0;
   refs.nextTrackButton.disabled = state.currentQueueIndex < 0 || state.currentQueueIndex >= state.playbackQueue.length - 1;
   syncProgressUi();
