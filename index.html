@@ -234,47 +234,49 @@
     </section>
   </div>
 
-  <div class="mini-player is-hidden" id="miniPlayer">
-    <div class="mini-player-cover">
-      <img id="heroCover" alt="Обложка текущего трека">
-      <div class="placeholder-art" id="heroPlaceholder" aria-hidden="true">
-        <span>SK</span>
+  <div class="app-dock">
+    <div class="mini-player is-hidden" id="miniPlayer">
+      <div class="mini-player-cover">
+        <img id="heroCover" alt="Обложка текущего трека">
+        <div class="placeholder-art" id="heroPlaceholder" aria-hidden="true">
+          <span>SK</span>
+        </div>
+      </div>
+
+      <div class="mini-player-copy">
+        <h3 id="heroTitle">Ничего не играет</h3>
+        <p id="heroArtist"></p>
+      </div>
+
+      <div class="mini-player-controls">
+        <button class="ghost-button icon-button" id="prevTrackButton" type="button" aria-label="Предыдущий трек">&lt;&lt;</button>
+        <button class="primary-button icon-button" id="playPauseButton" type="button" disabled">&gt;</button>
+        <button class="ghost-button icon-button" id="nextTrackButton" type="button" aria-label="Следующий трек">&gt;&gt;</button>
+      </div>
+
+      <div class="mini-player-progress">
+        <input
+          id="progressInput"
+          type="range"
+          min="0"
+          max="100"
+          value="0"
+          step="0.1"
+          aria-label="Прогресс воспроизведения"
+        >
+        <div class="time-row">
+          <span id="currentTimeLabel">0:00</span>
+          <span id="durationLabel">0:00</span>
+        </div>
       </div>
     </div>
 
-    <div class="mini-player-copy">
-      <h3 id="heroTitle">Ничего не играет</h3>
-      <p id="heroArtist"></p>
-    </div>
-
-    <div class="mini-player-controls">
-      <button class="ghost-button icon-button" id="prevTrackButton" type="button" aria-label="Предыдущий трек">&lt;&lt;</button>
-      <button class="primary-button icon-button" id="playPauseButton" type="button" disabled">&gt;</button>
-      <button class="ghost-button icon-button" id="nextTrackButton" type="button" aria-label="Следующий трек">&gt;&gt;</button>
-    </div>
-
-    <div class="mini-player-progress">
-      <input
-        id="progressInput"
-        type="range"
-        min="0"
-        max="100"
-        value="0"
-        step="0.1"
-        aria-label="Прогресс воспроизведения"
-      >
-      <div class="time-row">
-        <span id="currentTimeLabel">0:00</span>
-        <span id="durationLabel">0:00</span>
-      </div>
-    </div>
+    <nav class="mobile-nav" aria-label="Мобильная навигация">
+      <button class="mobile-nav-button is-active" type="button" data-screen-target="home">Home</button>
+      <button class="mobile-nav-button" type="button" data-screen-target="library">Library</button>
+      <button class="mobile-nav-button" type="button" data-screen-target="statistics">Statistics</button>
+    </nav>
   </div>
-
-  <nav class="mobile-nav" aria-label="Мобильная навигация">
-    <button class="mobile-nav-button is-active" type="button" data-screen-target="home">Home</button>
-    <button class="mobile-nav-button" type="button" data-screen-target="library">Library</button>
-    <button class="mobile-nav-button" type="button" data-screen-target="statistics">Statistics</button>
-  </nav>
 
   <input id="audioInput" type="file" accept="audio/*" hidden>
   <input id="coverInput" type="file" accept="image/*" hidden>

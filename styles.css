@@ -1920,3 +1920,289 @@ body {
     border-radius: 26px 26px 0 0;
   }
 }
+
+/* Spotify-inspired refinement */
+:root {
+  --line-soft: rgba(255, 255, 255, 0.035);
+}
+
+body {
+  background:
+    radial-gradient(circle at 50% 8%, rgba(52, 133, 196, 0.12), transparent 26%),
+    linear-gradient(180deg, #09101a 0%, #070b12 42%, #04070b 100%);
+}
+
+.ambient-grid {
+  display: none;
+}
+
+.ambient-orb {
+  opacity: 0.2;
+  filter: blur(72px);
+}
+
+.ambient-orb-a {
+  animation-duration: 28s;
+}
+
+.ambient-orb-b {
+  animation-duration: 32s;
+}
+
+.ambient-orb-c {
+  animation-duration: 34s;
+}
+
+.app-shell {
+  width: min(1320px, 100%);
+}
+
+.shell-nav,
+.card,
+.collection-sheet-panel,
+.track-menu-panel,
+.mini-player,
+.mobile-nav {
+  overflow: visible;
+  backdrop-filter: none;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.028),
+    0 14px 36px rgba(0, 0, 0, 0.28);
+}
+
+.shell-nav::before,
+.card::before,
+.collection-sheet-panel::before,
+.track-menu-panel::before,
+.mini-player::before,
+.mobile-nav::before {
+  opacity: 0.18;
+}
+
+.shell-nav {
+  border-radius: 26px;
+  background:
+    linear-gradient(180deg, rgba(16, 21, 30, 0.96), rgba(10, 14, 20, 0.98));
+}
+
+.card {
+  border-radius: 24px;
+  background:
+    linear-gradient(180deg, rgba(18, 23, 33, 0.96), rgba(10, 14, 20, 0.985));
+}
+
+.import-card,
+.library-hub,
+.stats-card {
+  padding: 18px;
+}
+
+.library-section,
+.stats-section {
+  padding: 16px;
+  border-radius: 20px;
+  border-color: rgba(255, 255, 255, 0.04);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.015));
+  box-shadow: none;
+}
+
+.main-nav-button,
+.mobile-nav-button {
+  min-height: 48px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.04);
+  box-shadow: none;
+}
+
+.main-nav-button.is-active,
+.mobile-nav-button.is-active {
+  background: linear-gradient(180deg, rgba(64, 147, 214, 0.46), rgba(26, 84, 136, 0.46));
+  border-color: rgba(122, 211, 255, 0.14);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 8px 18px rgba(20, 73, 120, 0.18);
+}
+
+.primary-button {
+  background: linear-gradient(180deg, #79d0ff 0%, #49b3f7 48%, #2388d8 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.42),
+    0 10px 20px rgba(27, 105, 171, 0.2);
+}
+
+.ghost-button,
+.ghost-icon,
+.track-more,
+.track-menu-item,
+.track-drag-handle {
+  background: rgba(255, 255, 255, 0.045);
+  box-shadow: none;
+}
+
+.library-entry,
+.stats-row {
+  border-radius: 18px;
+  border-color: rgba(255, 255, 255, 0.04);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0.018));
+  box-shadow: none;
+}
+
+.library-entry-main {
+  background:
+    linear-gradient(180deg, rgba(67, 139, 194, 0.34), rgba(25, 62, 97, 0.34)),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0.018));
+}
+
+.library-entry:hover,
+.stats-row:hover {
+  transform: translateY(-1px);
+  box-shadow: none;
+}
+
+.library-entry-arrow,
+.sheet-track-index,
+.stats-rank,
+.stats-value {
+  color: #8fa3bb;
+}
+
+.collection-sheet-backdrop,
+.track-menu-backdrop {
+  background: rgba(2, 5, 9, 0.76);
+  backdrop-filter: blur(6px);
+}
+
+.collection-sheet-panel {
+  border-radius: 28px 28px 0 0;
+  background: linear-gradient(180deg, rgba(18, 23, 33, 0.985), rgba(10, 14, 20, 0.995));
+}
+
+.track-menu-panel {
+  border-radius: 24px 24px 0 0;
+  background: linear-gradient(180deg, rgba(18, 23, 33, 0.985), rgba(10, 14, 20, 0.995));
+}
+
+.sheet-track-row {
+  border: 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 0;
+  padding: 0;
+  background: transparent;
+}
+
+.sheet-track-row:hover,
+.sheet-track-row.is-active {
+  transform: none;
+  box-shadow: none;
+}
+
+.sheet-track-row.is-active {
+  background: rgba(64, 147, 214, 0.08);
+}
+
+.sheet-track-main {
+  padding: 12px 0;
+}
+
+.app-dock {
+  position: fixed;
+  left: 8px;
+  right: 8px;
+  bottom: calc(8px + var(--safe-bottom));
+  z-index: 85;
+  display: grid;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.app-dock .mini-player,
+.app-dock .mobile-nav {
+  pointer-events: auto;
+}
+
+.mini-player,
+.mobile-nav {
+  position: static;
+  left: auto;
+  right: auto;
+  bottom: auto;
+  margin: 0;
+}
+
+.mini-player {
+  gap: 10px;
+  padding: 8px 10px 10px;
+  border-radius: 18px;
+  background: linear-gradient(180deg, rgba(18, 23, 33, 0.98), rgba(10, 14, 20, 0.99));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.03),
+    0 10px 24px rgba(0, 0, 0, 0.24);
+}
+
+.mini-player-cover,
+.mini-player-cover img,
+.mini-player-cover .placeholder-art {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+}
+
+.mini-player-controls .icon-button {
+  min-width: 34px;
+  width: 34px;
+  height: 34px;
+}
+
+.mini-player-progress {
+  gap: 4px;
+}
+
+.mobile-nav {
+  gap: 8px;
+  padding: 8px;
+  border-radius: 18px;
+  background: linear-gradient(180deg, rgba(18, 23, 33, 0.98), rgba(10, 14, 20, 0.99));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.03),
+    0 10px 24px rgba(0, 0, 0, 0.24);
+}
+
+.mobile-nav-button {
+  min-height: 46px;
+  font-size: 0.98rem;
+  font-weight: 700;
+}
+
+body.is-dragging-tracks .app-dock {
+  pointer-events: none;
+}
+
+@media (min-width: 1181px) {
+  .app-dock {
+    left: 24px;
+    right: 24px;
+    bottom: calc(18px + var(--safe-bottom));
+  }
+
+  .mobile-nav {
+    display: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .app-dock {
+    left: 8px;
+    right: 8px;
+    bottom: calc(8px + var(--safe-bottom));
+  }
+
+  .card,
+  .library-section,
+  .stats-section {
+    border-radius: 20px;
+  }
+
+  .mobile-nav-button {
+    min-height: 44px;
+  }
+}
