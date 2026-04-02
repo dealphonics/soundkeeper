@@ -11,6 +11,8 @@ const PLAY_HISTORY_STORE = "play-history";
 const TELEGRAM_WEBAPP_SCRIPT_URL = "https://telegram.org/js/telegram-web-app.js?61";
 const SPLASH_MIN_DURATION_MS = 1350;
 const SPLASH_MAX_DURATION_MS = 2800;
+const SPLASH_RESUME_MIN_DURATION_MS = 900;
+const SPLASH_RESUME_THRESHOLD_MS = 260;
 
 const state = {
   library: [],
@@ -57,7 +59,11 @@ const refs = {};
 let telegramScriptPromise = null;
 let telegramReadySent = false;
 let splashDismissPromise = null;
-const splashStartedAt = typeof performance !== "undefined" ? performance.now() : Date.now();
+let splashStartedAt = nowMs();
+let splashMinDurationMs = SPLASH_MIN_DURATION_MS;
+let splashSequence = 0;
+let lastHiddenAt = 0;
+let hasCompletedInitialBoot = false;
 
 document.addEventListener("DOMContentLoaded", () => {
   void init();
@@ -69,11 +75,20 @@ window.addEventListener("load", () => {
 
 window.addEventListener("pageshow", () => {
   markTelegramReady();
+  void triggerResumeSplash();
 });
 
 document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "hidden") {
+    lastHiddenAt = nowMs();
+    return;
+  }
+
   if (document.visibilityState === "visible") {
     markTelegramReady();
+    if (!lastHiddenAt || nowMs() - lastHiddenAt >= SPLASH_RESUME_THRESHOLD_MS) {
+      void triggerResumeSplash();
+    }
   }
 });
 
@@ -82,6 +97,7 @@ async function init() {
   cacheRefs();
   bindEvents();
   applyTelegramChrome();
+  const splashToken = showSplash();
   renderApp();
   const bootTasks = [
     ensureTelegramBridge(),
@@ -92,7 +108,8 @@ async function init() {
     Promise.allSettled(bootTasks),
     delay(SPLASH_MAX_DURATION_MS),
   ]).finally(() => {
-    void dismissSplash();
+    hasCompletedInitialBoot = true;
+    void dismissSplash(splashToken);
   });
 }
 
@@ -225,7 +242,30 @@ function delay(ms) {
   });
 }
 
-async function dismissSplash() {
+function nowMs() {
+  return typeof performance !== "undefined" ? performance.now() : Date.now();
+}
+
+function showSplash(minDuration = SPLASH_MIN_DURATION_MS) {
+  splashSequence += 1;
+  splashStartedAt = nowMs();
+  splashMinDurationMs = minDuration;
+  splashDismissPromise = null;
+  document.body.classList.add("is-splash-visible");
+
+  if (refs.appSplash) {
+    refs.appSplash.classList.remove("is-dismissing");
+    refs.appSplash.setAttribute("aria-hidden", "false");
+  }
+
+  return splashSequence;
+}
+
+async function dismissSplash(sequence = splashSequence) {
+  if (sequence !== splashSequence) {
+    return;
+  }
+
   if (splashDismissPromise) {
     return splashDismissPromise;
   }
@@ -236,23 +276,35 @@ async function dismissSplash() {
       return;
     }
 
-    const now = typeof performance !== "undefined" ? performance.now() : Date.now();
-    const elapsed = now - splashStartedAt;
-    if (elapsed < SPLASH_MIN_DURATION_MS) {
-      await delay(SPLASH_MIN_DURATION_MS - elapsed);
+    const elapsed = nowMs() - splashStartedAt;
+    if (elapsed < splashMinDurationMs) {
+      await delay(splashMinDurationMs - elapsed);
+    }
+
+    if (sequence !== splashSequence) {
+      return;
     }
 
     refs.appSplash.classList.add("is-dismissing");
+    refs.appSplash.setAttribute("aria-hidden", "true");
     document.body.classList.remove("is-splash-visible");
     await delay(380);
-
-    if (refs.appSplash?.isConnected) {
-      refs.appSplash.remove();
-    }
-    refs.appSplash = null;
   })();
 
   return splashDismissPromise;
+}
+
+async function triggerResumeSplash() {
+  if (!hasCompletedInitialBoot || !refs.appSplash || document.visibilityState === "hidden") {
+    return;
+  }
+
+  const splashToken = showSplash(SPLASH_RESUME_MIN_DURATION_MS);
+  await Promise.race([
+    ensureTelegramBridge(),
+    delay(SPLASH_MAX_DURATION_MS),
+  ]);
+  await dismissSplash(splashToken);
 }
 
 function bindEvents() {
