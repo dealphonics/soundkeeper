@@ -2206,3 +2206,32 @@ body.is-dragging-tracks .app-dock {
     min-height: 44px;
   }
 }
+
+/* Collection safe-space above fixed dock */
+.collection-sheet-panel {
+  padding-bottom: calc(214px + var(--safe-bottom));
+}
+
+.collection-track-list {
+  padding-bottom: calc(208px + var(--safe-bottom));
+}
+
+@media (min-width: 1181px) {
+  .collection-sheet-panel {
+    padding-bottom: 196px;
+  }
+
+  .collection-track-list {
+    padding-bottom: 180px;
+  }
+}
+
+@media (max-width: 640px) {
+  .collection-sheet-panel {
+    padding-bottom: calc(222px + var(--safe-bottom));
+  }
+
+  .collection-track-list {
+    padding-bottom: calc(216px + var(--safe-bottom));
+  }
+}
