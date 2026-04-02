@@ -690,6 +690,7 @@ function renderMiniPlayer() {
   const track = getCurrentTrack();
   if (!track) {
     refs.miniPlayer.classList.add("is-hidden");
+    document.body.classList.remove("has-active-player");
     refs.playPauseButton.disabled = true;
     refs.prevTrackButton.disabled = true;
     refs.nextTrackButton.disabled = true;
@@ -700,6 +701,7 @@ function renderMiniPlayer() {
   }
 
   refs.miniPlayer.classList.remove("is-hidden");
+  document.body.classList.add("has-active-player");
   refs.heroTitle.textContent = track.title;
   refs.heroArtist.textContent = [track.artist, track.album].filter(Boolean).join(" · ");
 

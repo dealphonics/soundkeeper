@@ -2238,3 +2238,58 @@ body.is-dragging-tracks .app-dock {
     padding-bottom: calc(216px + var(--safe-bottom));
   }
 }
+
+/* Robust collection overlay clearance above fixed dock */
+:root {
+  --dock-nav-reserve: 94px;
+  --dock-player-reserve: 132px;
+  --dock-gap-reserve: 12px;
+}
+
+.collection-sheet {
+  padding-bottom: calc(var(--dock-nav-reserve) + var(--safe-bottom) + var(--dock-gap-reserve));
+}
+
+body.has-active-player .collection-sheet {
+  padding-bottom: calc(var(--dock-nav-reserve) + var(--dock-player-reserve) + var(--safe-bottom) + var(--dock-gap-reserve));
+}
+
+.collection-sheet-panel {
+  max-height: calc(100dvh - var(--dock-nav-reserve) - var(--safe-bottom) - var(--dock-gap-reserve));
+  padding-bottom: 24px;
+  scroll-padding-bottom: 24px;
+}
+
+body.has-active-player .collection-sheet-panel {
+  max-height: calc(100dvh - var(--dock-nav-reserve) - var(--dock-player-reserve) - var(--safe-bottom) - var(--dock-gap-reserve));
+}
+
+.collection-track-list {
+  padding-bottom: 20px;
+}
+
+@media (min-width: 1181px) {
+  .collection-sheet {
+    padding: 16px 16px calc(120px + var(--safe-bottom));
+  }
+
+  body.has-active-player .collection-sheet {
+    padding-bottom: calc(152px + var(--safe-bottom));
+  }
+
+  .collection-sheet-panel {
+    max-height: calc(100vh - 32px - 120px - var(--safe-bottom));
+  }
+
+  body.has-active-player .collection-sheet-panel {
+    max-height: calc(100vh - 32px - 152px - var(--safe-bottom));
+  }
+}
+
+@media (max-width: 640px) {
+  :root {
+    --dock-nav-reserve: 92px;
+    --dock-player-reserve: 136px;
+    --dock-gap-reserve: 10px;
+  }
+}
