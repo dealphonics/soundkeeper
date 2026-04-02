@@ -2210,6 +2210,7 @@ body.is-dragging-tracks .app-dock {
 /* Collection safe-space above fixed dock */
 .collection-sheet-panel {
   padding-bottom: calc(214px + var(--safe-bottom));
+  scroll-padding-bottom: calc(214px + var(--safe-bottom));
 }
 
 .collection-track-list {
@@ -2219,6 +2220,7 @@ body.is-dragging-tracks .app-dock {
 @media (min-width: 1181px) {
   .collection-sheet-panel {
     padding-bottom: 196px;
+    scroll-padding-bottom: 196px;
   }
 
   .collection-track-list {
@@ -2229,6 +2231,7 @@ body.is-dragging-tracks .app-dock {
 @media (max-width: 640px) {
   .collection-sheet-panel {
     padding-bottom: calc(222px + var(--safe-bottom));
+    scroll-padding-bottom: calc(222px + var(--safe-bottom));
   }
 
   .collection-track-list {
